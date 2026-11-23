@@ -1,0 +1,4771 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crônicas de Oakhaven — RPG 2.5D Fantasia Medieval</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"
+            onerror="this.onerror=null;this.src='https://unpkg.com/three@0.160.0/build/three.min.js';"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #14110e;
+            color: #f3ead8;
+        }
+
+        #game-canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Painéis ornamentados estilo RPG Medieval / Ragnarok Online */
+        .ro-panel {
+            background: linear-gradient(180deg, rgba(44, 33, 24, 0.96) 0%, rgba(26, 19, 14, 0.97) 100%);
+            border: 2px solid #c89d54;
+            border-radius: 8px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65), inset 0 0 0 1px rgba(255, 232, 180, 0.18);
+            padding: 14px;
+        }
+
+        .ro-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(200, 157, 84, 0.4);
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
+
+        .ro-panel-header h2 {
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 1.15rem;
+            color: #f5cb5c;
+            letter-spacing: 0.5px;
+        }
+
+        .ro-btn {
+            background: linear-gradient(180deg, #59412b 0%, #3b291a 100%);
+            color: #f3ead8;
+            border: 1px solid #c89d54;
+            border-radius: 5px;
+            padding: 8px 14px;
+            font-weight: 600;
+            font-size: 0.88rem;
+            cursor: pointer;
+            transition: transform 0.1s ease, filter 0.15s ease;
+        }
+
+        .ro-btn:hover:not(:disabled) {
+            filter: brightness(1.18);
+            transform: translateY(-1px);
+        }
+
+        .ro-btn:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+
+        .ro-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .ro-btn.primary {
+            background: linear-gradient(180deg, #b87d28 0%, #7d5014 100%);
+            color: #fff9eb;
+            border-color: #ffd166;
+        }
+
+        .ro-btn.small {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+
+        /* HUD Superior Esquerdo */
+        #hud-top-left {
+            position: fixed;
+            top: 14px;
+            left: 14px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            width: 310px;
+            z-index: 10;
+            padding: 10px 12px;
+        }
+
+        #hud-portrait {
+            width: 62px;
+            height: 62px;
+            border-radius: 6px;
+            border: 2px solid #d4a235;
+            background: #1b140e;
+            image-rendering: pixelated;
+        }
+
+        .hud-bars {
+            flex: 1;
+        }
+
+        .hud-name-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #f5cb5c;
+            margin-bottom: 5px;
+        }
+
+        .bar-wrap {
+            position: relative;
+            height: 15px;
+            background: #140f0b;
+            border: 1px solid #6e5434;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+
+        .bar-wrap.exp {
+            height: 8px;
+            margin-bottom: 0;
+        }
+
+        .bar-fill {
+            height: 100%;
+            transition: width 0.15s ease;
+        }
+
+        .bar-fill.hp { background: linear-gradient(90deg, #b52b2d, #e6484b); }
+        .bar-fill.sp { background: linear-gradient(90deg, #2457a6, #4287f5); }
+        .bar-fill.exp { background: linear-gradient(90deg, #c48f21, #f5cb5c); }
+
+        .bar-wrap span {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-shadow: 1px 1px 2px #000;
+        }
+
+        /* HUD Superior Direito (Minimapa + Missão Ativa) */
+        #hud-top-right {
+            position: fixed;
+            top: 14px;
+            right: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .minimap-box {
+            padding: 8px;
+            text-align: center;
+        }
+
+        #hud-region-name {
+            font-family: Georgia, serif;
+            font-size: 0.82rem;
+            color: #f5cb5c;
+            margin-bottom: 5px;
+        }
+
+        #minimap-canvas {
+            border: 1px solid #c89d54;
+            border-radius: 4px;
+            display: block;
+        }
+
+        #hud-quest-tracker {
+            width: 240px;
+            padding: 9px 12px;
+            font-size: 0.82rem;
+        }
+
+        .tracker-title {
+            color: #f5cb5c;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+
+        /* Barra de Vida do Chefe */
+        #boss-hud-bar {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(460px, 60vw);
+            z-index: 12;
+            text-align: center;
+            padding: 8px 14px;
+        }
+
+        #boss-name-label {
+            font-family: Georgia, serif;
+            color: #ff7575;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        /* Barra Rápida Inferior */
+        #hud-bottom-bar {
+            position: fixed;
+            bottom: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            z-index: 10;
+            padding: 8px 12px;
+        }
+
+        .quick-btn {
+            position: relative;
+            background: #241a12;
+            border: 1px solid #c89d54;
+            border-radius: 6px;
+            color: #f3ead8;
+            padding: 7px 11px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .quick-btn:hover {
+            background: #3b2b1d;
+        }
+
+        .badge-count {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: #d9383a;
+            color: #fff;
+            border-radius: 10px;
+            padding: 1px 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        /* Prompt de interação e Notificações */
+        #interact-prompt {
+            position: fixed;
+            bottom: 84px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(24, 18, 12, 0.92);
+            border: 1px solid #f5cb5c;
+            color: #ffd166;
+            padding: 7px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            z-index: 11;
+        }
+
+        #toast-banner {
+            position: fixed;
+            top: 96px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(34, 24, 15, 0.95);
+            border: 1px solid #f5cb5c;
+            color: #fff6db;
+            padding: 9px 18px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            z-index: 30;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Números flutuantes de dano */
+        #floating-numbers-layer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 8;
+        }
+
+        .floating-dmg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            font-weight: 800;
+            font-size: 0.98rem;
+            text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+            will-change: transform, opacity;
+        }
+
+        .floating-dmg.crit {
+            font-size: 1.22rem;
+        }
+
+        /* Janela de Diálogo */
+        #dialogue-box {
+            position: fixed;
+            bottom: 76px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(680px, 92vw);
+            display: flex;
+            gap: 16px;
+            z-index: 25;
+        }
+
+        #dialogue-portrait {
+            width: 92px;
+            height: 92px;
+            border: 2px solid #c89d54;
+            border-radius: 6px;
+            image-rendering: pixelated;
+            flex-shrink: 0;
+        }
+
+        .dialogue-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .dialogue-header {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+
+        #dialogue-npc-name {
+            font-family: Georgia, serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #f5cb5c;
+        }
+
+        #dialogue-npc-role {
+            font-size: 0.8rem;
+            color: #bfb299;
+        }
+
+        #dialogue-text {
+            font-size: 0.95rem;
+            line-height: 1.45;
+            margin-bottom: 12px;
+        }
+
+        #dialogue-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        /* Modais Centrais */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 8, 6, 0.62);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 40;
+        }
+
+        .modal-card {
+            width: min(640px, 94vw);
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        /* Inventário & Equipamentos */
+        .inv-layout {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            gap: 14px;
+        }
+
+        .equip-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(18, 13, 9, 0.7);
+            border: 1px solid #59442b;
+            border-radius: 5px;
+            padding: 6px;
+            margin-bottom: 6px;
+        }
+
+        .equip-row img, .equip-empty-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 4px;
+            border: 1px solid #7c603d;
+            background: #17110c;
+            image-rendering: pixelated;
+        }
+
+        .equip-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            font-size: 0.8rem;
+        }
+
+        .equip-slot-tag {
+            color: #c89d54;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+
+        #inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+        }
+
+        .inv-slot {
+            position: relative;
+            aspect-ratio: 1;
+            background: #17110c;
+            border: 1px solid #6e5434;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .inv-slot.filled {
+            cursor: pointer;
+            border-color: #c89d54;
+        }
+
+        .inv-slot.filled:hover {
+            background: #2c2016;
+        }
+
+        .inv-slot img {
+            width: 40px;
+            height: 40px;
+            image-rendering: pixelated;
+        }
+
+        .item-qty {
+            position: absolute;
+            bottom: 3px;
+            right: 5px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #ffd166;
+        }
+
+        .item-tooltip {
+            display: none;
+            position: absolute;
+            bottom: 108%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 190px;
+            background: #1b140e;
+            border: 1px solid #f5cb5c;
+            border-radius: 5px;
+            padding: 7px;
+            font-size: 0.76rem;
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        .inv-slot.filled:hover .item-tooltip {
+            display: block;
+        }
+
+        /* Atributos */
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 7px 10px;
+            background: rgba(18, 13, 9, 0.65);
+            border-radius: 5px;
+            margin-bottom: 6px;
+        }
+
+        .stat-row small {
+            display: block;
+            color: #b8aa91;
+            font-size: 0.75rem;
+        }
+
+        .stat-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .stat-val {
+            font-weight: 700;
+            color: #f5cb5c;
+            font-size: 1rem;
+        }
+
+        #derived-stats-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 16px;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(200, 157, 84, 0.35);
+            font-size: 0.85rem;
+        }
+
+        /* Missões & Loja */
+        .quest-card {
+            background: rgba(18, 13, 9, 0.75);
+            border: 1px solid #6e5434;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 10px;
+        }
+
+        .quest-header, .quest-progress, .quest-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .quest-desc {
+            font-size: 0.84rem;
+            color: #d6c9b2;
+            margin: 6px 0;
+        }
+
+        .quest-badge {
+            font-size: 0.72rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 700;
+        }
+
+        .badge-active { background: #2b5985; color: #fff; }
+        .badge-ready { background: #c48f21; color: #140f0b; }
+        .badge-done { background: #2e6b3e; color: #fff; }
+        .badge-avail { background: #4a3f35; color: #ddd; }
+
+        .shop-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: rgba(18, 13, 9, 0.7);
+            border-radius: 5px;
+            margin-bottom: 7px;
+        }
+
+        .shop-row img {
+            width: 38px;
+            height: 38px;
+            image-rendering: pixelated;
+        }
+
+        .shop-item-info {
+            flex: 1;
+        }
+
+        .shop-item-info small {
+            display: block;
+            color: #bfb299;
+        }
+
+        /* Tela Inicial */
+        #title-screen {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(28, 22, 16, 0.78) 0%, rgba(12, 9, 7, 0.94) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 60;
+        }
+
+        .title-card {
+            width: min(560px, 92vw);
+            text-align: center;
+            padding: 24px;
+        }
+
+        .title-card h1 {
+            font-family: Georgia, serif;
+            font-size: 1.9rem;
+            color: #f5cb5c;
+            margin-bottom: 6px;
+        }
+
+        .title-subtitle {
+            color: #d6c9b2;
+            font-size: 0.92rem;
+            margin-bottom: 16px;
+        }
+
+        .skin-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 14px 0;
+        }
+
+        .skin-card {
+            background: #1b140e;
+            border: 2px solid #59442b;
+            border-radius: 8px;
+            padding: 10px;
+            cursor: pointer;
+            transition: border-color 0.15s ease;
+        }
+
+        .skin-card.selected {
+            border-color: #f5cb5c;
+            background: #2b2016;
+        }
+
+        .skin-card img {
+            width: 72px;
+            height: 72px;
+            image-rendering: pixelated;
+            border-radius: 6px;
+            margin-bottom: 6px;
+        }
+
+        .skin-card strong {
+            display: block;
+            font-size: 0.88rem;
+            color: #f5cb5c;
+        }
+
+        .skin-card small {
+            font-size: 0.75rem;
+            color: #bfb299;
+        }
+
+        #input-hero-name {
+            width: 100%;
+            padding: 8px 12px;
+            margin-bottom: 14px;
+            border-radius: 5px;
+            border: 1px solid #c89d54;
+            background: #17110c;
+            color: #f3ead8;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+
+        .title-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="game-canvas"></canvas>
+    <div id="floating-numbers-layer"></div>
+
+    <!-- HUD Superior Esquerdo -->
+    <div id="hud-top-left" class="ro-panel">
+        <img id="hud-portrait" alt="Retrato do Herói">
+        <div class="hud-bars">
+            <div class="hud-name-row">
+                <span id="hud-char-name">Sir Aldren</span>
+                <span id="hud-level">Nv. 1</span>
+            </div>
+            <div class="bar-wrap">
+                <div id="hud-hp-bar" class="bar-fill hp" style="width: 100%"></div>
+                <span id="hud-hp-text">110 / 110</span>
+            </div>
+            <div class="bar-wrap">
+                <div id="hud-sp-bar" class="bar-fill sp" style="width: 100%"></div>
+                <span id="hud-sp-text">40 / 40</span>
+            </div>
+            <div class="bar-wrap exp">
+                <div id="hud-exp-bar" class="bar-fill exp" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HUD Superior Direito (Minimapa e Missão Ativa) -->
+    <div id="hud-top-right">
+        <div class="ro-panel minimap-box">
+            <div id="hud-region-name">Vilarejo de Oakhaven</div>
+            <canvas id="minimap-canvas" width="144" height="144"></canvas>
+        </div>
+        <div id="hud-quest-tracker" class="ro-panel"></div>
+    </div>
+
+    <!-- Barra de Vida do Chefe Final -->
+    <div id="boss-hud-bar" class="ro-panel hidden">
+        <div id="boss-name-label">Goblin Rei Grakthar</div>
+        <div class="bar-wrap">
+            <div id="boss-hp-fill" class="bar-fill hp" style="width: 100%"></div>
+        </div>
+    </div>
+
+    <!-- Barra de Ações Rápidas Inferior -->
+    <div id="hud-bottom-bar" class="ro-panel">
+        <button id="quick-slot-1" class="quick-btn" title="Usar Poção Vermelha">
+            [1] Poção HP <span id="quick-hp-count" class="badge-count">4</span>
+        </button>
+        <button id="quick-slot-2" class="quick-btn" title="Usar Poção Azul">
+            [2] Poção SP <span id="quick-sp-count" class="badge-count">2</span>
+        </button>
+        <button id="btn-toggle-inv" class="quick-btn">[I] Inventário</button>
+        <button id="btn-toggle-stats" class="quick-btn">
+            [C] Atributos <span id="stat-point-badge" class="badge-count hidden">+5</span>
+        </button>
+        <button id="btn-toggle-quests" class="quick-btn">[Q] Missões</button>
+        <button id="btn-toggle-menu" class="quick-btn">[ESC] Menu</button>
+    </div>
+
+    <div id="interact-prompt" class="hidden">[E] Conversar</div>
+    <div id="toast-banner" class="hidden"></div>
+
+    <!-- Janela de Diálogo com NPC -->
+    <div id="dialogue-box" class="ro-panel hidden">
+        <img id="dialogue-portrait" alt="Retrato NPC">
+        <div class="dialogue-body">
+            <div>
+                <div class="dialogue-header">
+                    <span id="dialogue-npc-name">NPC</span>
+                    <span id="dialogue-npc-role">Função</span>
+                </div>
+                <p id="dialogue-text"></p>
+            </div>
+            <div id="dialogue-actions"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Inventário e Equipamentos [I] -->
+    <div id="modal-inventory" class="modal-overlay hidden">
+        <div class="ro-panel modal-card">
+            <div class="ro-panel-header">
+                <h2>Inventário &amp; Equipamentos</h2>
+                <div>
+                    <strong id="inv-gold-value" style="color:#ffd166;margin-right:12px;">120 Zeny</strong>
+                    <button class="ro-btn small" data-close-modal>Fechar [I]</button>
+                </div>
+            </div>
+            <div class="inv-layout">
+                <div>
+                    <h4 style="margin-bottom:8px;color:#c89d54;">Equipado</h4>
+                    <div id="equip-slots-list"></div>
+                </div>
+                <div>
+                    <h4 style="margin-bottom:8px;color:#c89d54;">Mochila (Clique para usar/equipar)</h4>
+                    <div id="inventory-grid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Atributos do Personagem [C] -->
+    <div id="modal-stats" class="modal-overlay hidden">
+        <div class="ro-panel modal-card">
+            <div class="ro-panel-header">
+                <h2>Atributos do Personagem</h2>
+                <div>
+                    <span style="margin-right:12px;">Pontos Disponíveis: <strong id="stat-points-avail" style="color:#ffd166;">5</strong></span>
+                    <button class="ro-btn small" data-close-modal>Fechar [C]</button>
+                </div>
+            </div>
+            <div id="base-stats-list"></div>
+            <div id="derived-stats-box"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Painel de Missões [Q] -->
+    <div id="modal-quests" class="modal-overlay hidden">
+        <div class="ro-panel modal-card">
+            <div class="ro-panel-header">
+                <h2>Diário de Missões</h2>
+                <button class="ro-btn small" data-close-modal>Fechar [Q]</button>
+            </div>
+            <div id="quest-list-container"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Loja Medieval -->
+    <div id="modal-shop" class="modal-overlay hidden">
+        <div class="ro-panel modal-card">
+            <div class="ro-panel-header">
+                <h2 id="shop-title">Loja</h2>
+                <div>
+                    <strong id="shop-gold-display" style="color:#ffd166;margin-right:12px;">120 Zeny</strong>
+                    <button class="ro-btn small" data-close-modal>Fechar</button>
+                </div>
+            </div>
+            <div id="shop-items-list"></div>
+        </div>
+    </div>
+
+    <!-- Modal: Menu de Pausa e Salvamento [ESC] -->
+    <div id="modal-pause" class="modal-overlay hidden">
+        <div class="ro-panel modal-card" style="max-width:400px;text-align:center;">
+            <div class="ro-panel-header">
+                <h2>Menu do Aventureiro</h2>
+                <button class="ro-btn small" data-close-modal>Voltar</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <button id="btn-save-game" class="ro-btn primary">Salvar Progresso</button>
+                <button id="btn-load-game" class="ro-btn">Carregar Último Save</button>
+                <button id="btn-toggle-audio" class="ro-btn">Áudio: Ativado</button>
+                <p style="font-size:0.78rem;color:#bfb299;margin-top:6px;">
+                    Controles: WASD Mover • Clique Esq. Atacar • Espaço Esquivar • E Conversar • I Inventário • C Atributos • Q Missões • Z/X Girar Câmera
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Derrota -->
+    <div id="death-modal" class="modal-overlay hidden">
+        <div class="ro-panel modal-card" style="max-width:400px;text-align:center;">
+            <h2 style="color:#ff6b6b;margin-bottom:10px;">Você foi derrotado!</h2>
+            <p style="margin-bottom:16px;">Os goblins prevaleceram desta vez, mas sua jornada ainda não acabou.</p>
+            <button id="btn-respawn" class="ro-btn primary">Despertar no Vilarejo de Oakhaven</button>
+        </div>
+    </div>
+
+    <!-- Modal: Vitória da Campanha -->
+    <div id="victory-modal" class="modal-overlay hidden">
+        <div class="ro-panel modal-card" style="max-width:460px;text-align:center;">
+            <h2 style="color:#f5cb5c;margin-bottom:10px;">Campanha Concluída!</h2>
+            <p style="margin-bottom:16px;line-height:1.5;">
+                Você derrotou o temível <strong>Goblin Rei Grakthar</strong> e devolveu a paz ao Vilarejo de Oakhaven!
+                Sua bravura será cantada nas tavernas por gerações.
+            </p>
+            <button id="btn-victory-continue" class="ro-btn primary">Continuar Explorando o Mundo</button>
+        </div>
+    </div>
+
+    <!-- Tela Inicial -->
+    <div id="title-screen">
+        <div class="ro-panel title-card">
+            <h1>Crônicas de Oakhaven</h1>
+            <p class="title-subtitle">RPG Single-Player 2.5D • Inspirado em Ragnarok Online</p>
+            <input id="input-hero-name" type="text" maxlength="20" value="Sir Aldren" placeholder="Nome do seu personagem">
+            <div class="skin-selector">
+                <div class="skin-card selected" data-skin="knight">
+                    <img id="preview-knight" alt="Cavaleiro de Oakhaven">
+                    <strong>Cavaleiro de Oakhaven</strong>
+                    <small>Armadura metálica, ombreiras e espada</small>
+                </div>
+                <div class="skin-card" data-skin="guardian">
+                    <img id="preview-guardian" alt="Guardião do Manto Verde">
+                    <strong>Guardião do Manto Verde</strong>
+                    <small>Manto esmeralda e túnica do Instituto</small>
+                </div>
+            </div>
+            <div class="title-buttons">
+                <button id="btn-title-new" class="ro-btn primary">Iniciar Nova Aventura</button>
+                <button id="btn-title-continue" class="ro-btn hidden">Continuar Jogo Salvo</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    window.Ragnarok25D = window.Ragnarok25D || {};
+
+    /* ==========================================================================
+       1. SpriteFactory — Spritesheets pixel-art 4 direções, retratos e ícones
+       ========================================================================== */
+    class SpriteFactory {
+        constructor() {
+            this.cache = new Map();
+            this.portraitCache = new Map();
+            this.iconCache = new Map();
+        }
+
+        getCharacterTexture(type) {
+            if (this.cache.has(type)) return this.cache.get(type);
+
+            const frameSize = 128;
+            const cols = 8;
+            const rows = 4;
+            const canvas = document.createElement('canvas');
+            canvas.width = frameSize * cols;
+            canvas.height = frameSize * rows;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+
+            for (let dir = 0; dir < rows; dir++) {
+                for (let col = 0; col < cols; col++) {
+                    ctx.save();
+                    ctx.translate(col * frameSize, dir * frameSize);
+                    this._drawCharacterFrame(ctx, type, dir, col, frameSize);
+                    ctx.restore();
+                }
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.magFilter = THREE.NearestFilter;
+            texture.minFilter = THREE.LinearFilter;
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.needsUpdate = true;
+
+            this.cache.set(type, texture);
+            return texture;
+        }
+
+        getPortraitDataURL(type) {
+            if (this.portraitCache.has(type)) return this.portraitCache.get(type);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 96;
+            canvas.height = 96;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+
+            const grad = ctx.createLinearGradient(0, 0, 0, 96);
+            grad.addColorStop(0, '#2c2219');
+            grad.addColorStop(1, '#17110c');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 96, 96);
+
+            ctx.save();
+            ctx.translate(-16, 4);
+            this._drawCharacterFrame(ctx, type, 0, 0, 128, true);
+            ctx.restore();
+
+            const url = canvas.toDataURL();
+            this.portraitCache.set(type, url);
+            return url;
+        }
+
+        _drawCharacterFrame(ctx, type, dir, col, size, isPortrait = false) {
+            if (!isPortrait) {
+                ctx.fillStyle = 'rgba(10, 14, 10, 0.38)';
+                ctx.beginPath();
+                ctx.ellipse(64, 114, col === 7 ? 28 : 20, 7, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            const isHurt = col === 7;
+            const isAttack = col === 6;
+            const walkPhase = col >= 2 && col <= 5 ? col - 2 : -1;
+            const idlePhase = col === 1 ? 1 : 0;
+
+            let bobY = 0;
+            if (idlePhase === 1) bobY = 2;
+            if (walkPhase === 0 || walkPhase === 2) bobY = -3;
+            if (walkPhase === 1 || walkPhase === 3) bobY = 1;
+            if (isAttack) bobY = -2;
+
+            const cfg = this._getPresetConfig(type);
+
+            ctx.save();
+            if (isHurt && !isPortrait) {
+                ctx.translate(dir === 1 ? 6 : -6, 4);
+            }
+
+            if (cfg.scale && !isPortrait) {
+                ctx.translate(64, 114);
+                ctx.scale(cfg.scale, cfg.scale);
+                ctx.translate(-64, -114);
+            }
+
+            const cx = 64;
+            const baseY = 110 + bobY;
+
+            const flipX = dir === 2;
+            ctx.save();
+            if (flipX) {
+                ctx.translate(cx * 2, 0);
+                ctx.scale(-1, 1);
+            }
+
+            const sideView = (dir === 1 || dir === 2);
+            const backView = (dir === 3);
+
+            // Capa traseira
+            if (cfg.cloakColor && !backView) {
+                this._pxRect(ctx, cx - 18, baseY - 52, 36, 36, cfg.cloakDark, '#141210');
+            }
+
+            // Pernas e Botas
+            const leftLegOffset = walkPhase === 0 ? -5 : walkPhase === 2 ? 5 : 0;
+            const rightLegOffset = walkPhase === 0 ? 5 : walkPhase === 2 ? -5 : 0;
+
+            if (sideView) {
+                this._pxRect(ctx, cx - 6 + rightLegOffset, baseY - 22, 10, 14, cfg.pantsColor, '#181412');
+                this._pxRect(ctx, cx - 7 + rightLegOffset, baseY - 10, 12, 10, cfg.bootColor, '#181412');
+                this._pxRect(ctx, cx - 4 + leftLegOffset, baseY - 22, 10, 14, cfg.pantsColor, '#181412');
+                this._pxRect(ctx, cx - 5 + leftLegOffset, baseY - 10, 12, 10, cfg.bootColor, '#181412');
+            } else {
+                this._pxRect(ctx, cx - 13, baseY - 22 + Math.min(0, leftLegOffset), 10, 14, cfg.pantsColor, '#181412');
+                this._pxRect(ctx, cx - 14, baseY - 10 + Math.min(0, leftLegOffset), 11, 10, cfg.bootColor, '#181412');
+                this._pxRect(ctx, cx + 3, baseY - 22 + Math.min(0, rightLegOffset), 10, 14, cfg.pantsColor, '#181412');
+                this._pxRect(ctx, cx + 3, baseY - 10 + Math.min(0, rightLegOffset), 11, 10, cfg.bootColor, '#181412');
+            }
+
+            // Tronco / Armadura / Túnica
+            const torsoW = sideView ? 22 : 30;
+            const torsoX = cx - torsoW / 2;
+            this._pxRect(ctx, torsoX, baseY - 52, torsoW, 31, cfg.armorMain, '#181412');
+            if (cfg.armorTrim) {
+                this._pxRect(ctx, torsoX + 4, baseY - 49, torsoW - 8, 18, cfg.armorTrim, null);
+            }
+            if (cfg.emblem === 'ifpi' && !backView) {
+                ctx.fillStyle = '#1f8a4c';
+                ctx.fillRect(cx - 4, baseY - 45, 3, 3);
+                ctx.fillRect(cx, baseY - 45, 3, 3);
+                ctx.fillRect(cx - 4, baseY - 41, 3, 3);
+                ctx.fillRect(cx - 4, baseY - 37, 3, 3);
+                ctx.fillRect(cx, baseY - 37, 3, 3);
+                ctx.fillStyle = '#d93829';
+                ctx.fillRect(cx - 4, baseY - 49, 3, 3);
+            } else if (cfg.emblem === 'crest' && !backView) {
+                ctx.fillStyle = '#e5b94c';
+                ctx.fillRect(cx - 3, baseY - 46, 6, 8);
+            }
+
+            // Cinto
+            this._pxRect(ctx, torsoX, baseY - 26, torsoW, 5, '#4a2e1b', '#181412');
+            if (!backView) {
+                ctx.fillStyle = '#f2c94c';
+                ctx.fillRect(cx - 3, baseY - 26, 6, 5);
+            }
+
+            // Capa nas costas
+            if (cfg.cloakColor && backView) {
+                this._pxRect(ctx, cx - 18, baseY - 52, 36, 38, cfg.cloakColor, '#141210');
+                if (cfg.emblem === 'ifpi') {
+                    ctx.fillStyle = '#e8ece6';
+                    ctx.fillRect(cx - 6, baseY - 42, 12, 12);
+                    ctx.fillStyle = '#1f8a4c';
+                    ctx.fillRect(cx - 4, baseY - 40, 3, 8);
+                    ctx.fillRect(cx + 1, baseY - 36, 3, 4);
+                }
+            }
+
+            // Ombreiras
+            if (cfg.pauldronColor) {
+                if (sideView) {
+                    this._pxRect(ctx, cx - 10, baseY - 54, 18, 11, cfg.pauldronColor, '#181412');
+                } else {
+                    this._pxRect(ctx, cx - 21, baseY - 54, 11, 11, cfg.pauldronColor, '#181412');
+                    this._pxRect(ctx, cx + 10, baseY - 54, 11, 11, cfg.pauldronColor, '#181412');
+                }
+            }
+
+            // Braços
+            const armSwing = isAttack ? -10 : (walkPhase === 0 ? 4 : walkPhase === 2 ? -4 : 0);
+            if (!sideView) {
+                this._pxRect(ctx, cx - 20, baseY - 45 - armSwing * 0.5, 7, 17, cfg.gloveColor, '#181412');
+                this._pxRect(ctx, cx + 13, baseY - 45 + armSwing, 7, 17, cfg.gloveColor, '#181412');
+            } else {
+                this._pxRect(ctx, cx - 4, baseY - 45 + armSwing, 8, 17, cfg.gloveColor, '#181412');
+            }
+
+            // Escudo
+            if (cfg.hasShield && !backView) {
+                const sx = sideView ? cx + 4 : cx - 26;
+                const sy = baseY - 44;
+                this._pxRect(ctx, sx, sy, 13, 18, '#6a7885', '#181412');
+                ctx.fillStyle = '#d4a843';
+                ctx.fillRect(sx + 2, sy + 2, 9, 14);
+                ctx.fillStyle = '#2d4b73';
+                ctx.fillRect(sx + 4, sy + 4, 5, 10);
+            }
+
+            if (cfg.weapon) {
+                this._drawWeapon(ctx, cfg.weapon, cx, baseY, dir, isAttack);
+            }
+
+            // Cabeça e Rosto (Cavaleiro sem capacete com cabelos visíveis)
+            const headY = baseY - 78;
+            this._pxRect(ctx, cx - 14, headY, 28, 26, cfg.skinColor, '#181412');
+
+            if (cfg.isGoblin) {
+                this._pxRect(ctx, cx - 21, headY + 8, 7, 6, cfg.skinColor, '#181412');
+                this._pxRect(ctx, cx + 14, headY + 8, 7, 6, cfg.skinColor, '#181412');
+            }
+
+            if (!backView) {
+                const eyeOffsetX = sideView ? -4 : 0;
+                ctx.fillStyle = '#14110f';
+                if (!sideView) {
+                    ctx.fillRect(cx - 8, headY + 12, 4, 6);
+                    ctx.fillRect(cx + 4, headY + 12, 4, 6);
+                    ctx.fillStyle = cfg.eyeHighlight || '#ffffff';
+                    ctx.fillRect(cx - 8, headY + 12, 2, 2);
+                    ctx.fillRect(cx + 4, headY + 12, 2, 2);
+                } else {
+                    ctx.fillRect(cx - 9 + eyeOffsetX, headY + 12, 4, 6);
+                    ctx.fillStyle = cfg.eyeHighlight || '#ffffff';
+                    ctx.fillRect(cx - 9 + eyeOffsetX, headY + 12, 2, 2);
+                }
+
+                ctx.fillStyle = cfg.hairDark;
+                if (!sideView) {
+                    ctx.fillRect(cx - 9, headY + 9, 6, 2);
+                    ctx.fillRect(cx + 3, headY + 9, 6, 2);
+                } else {
+                    ctx.fillRect(cx - 10 + eyeOffsetX, headY + 9, 6, 2);
+                }
+            }
+
+            if (cfg.crown) {
+                this._pxRect(ctx, cx - 14, headY - 8, 28, 9, '#f2c138', '#181412');
+                ctx.fillStyle = '#d93636';
+                ctx.fillRect(cx - 2, headY - 5, 4, 4);
+            } else if (cfg.hairColor) {
+                this._pxRect(ctx, cx - 16, headY - 7, 32, 12, cfg.hairColor, '#181412');
+                if (!backView) {
+                    ctx.fillStyle = cfg.hairColor;
+                    ctx.fillRect(cx - 14, headY + 3, 6, 6);
+                    ctx.fillRect(cx - 3, headY + 3, 7, 7);
+                    ctx.fillRect(cx + 8, headY + 3, 6, 6);
+                } else {
+                    this._pxRect(ctx, cx - 15, headY + 2, 30, 18, cfg.hairColor, '#181412');
+                }
+                this._pxRect(ctx, cx - 16, headY + 3, 4, 14, cfg.hairDark, null);
+                this._pxRect(ctx, cx + 12, headY + 3, 4, 14, cfg.hairDark, null);
+            }
+
+            if (cfg.beardColor && !backView) {
+                this._pxRect(ctx, cx - 10, headY + 19, 20, 12, cfg.beardColor, '#181412');
+            }
+
+            if (isHurt) {
+                ctx.fillStyle = 'rgba(235, 50, 50, 0.35)';
+                ctx.fillRect(cx - 24, headY - 10, 48, 86);
+            }
+
+            ctx.restore();
+            ctx.restore();
+        }
+
+        _drawWeapon(ctx, weapon, cx, baseY, dir, isAttack) {
+            ctx.save();
+            if (weapon === 'sword') {
+                if (isAttack) {
+                    this._pxRect(ctx, cx - 34, baseY - 38, 32, 6, '#e6eef8', '#1b263b');
+                    ctx.fillStyle = '#d4a843';
+                    ctx.fillRect(cx - 6, baseY - 41, 4, 12);
+                    ctx.strokeStyle = 'rgba(180, 230, 255, 0.85)';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.arc(cx - 6, baseY - 35, 34, Math.PI * 0.65, Math.PI * 1.35);
+                    ctx.stroke();
+                } else {
+                    this._pxRect(ctx, cx + 15, baseY - 58, 5, 28, '#dce6f2', '#1b263b');
+                    ctx.fillStyle = '#d4a843';
+                    ctx.fillRect(cx + 12, baseY - 32, 11, 4);
+                }
+            } else if (weapon === 'club') {
+                const offset = isAttack ? -16 : 0;
+                this._pxRect(ctx, cx + 14 + offset, baseY - 52, 8, 24, '#7c5332', '#181412');
+            } else if (weapon === 'greatsword') {
+                const offset = isAttack ? -24 : 0;
+                this._pxRect(ctx, cx + 14 + offset, baseY - 64, 8, 36, '#b8c4d0', '#181412');
+                ctx.fillStyle = '#c94a38';
+                ctx.fillRect(cx + 11 + offset, baseY - 30, 14, 4);
+            } else if (weapon === 'bow') {
+                ctx.strokeStyle = '#8b5a2b';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(cx - 12, baseY - 36, 16, Math.PI * 0.6, Math.PI * 1.4);
+                ctx.stroke();
+                ctx.strokeStyle = '#e8dec8';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(cx - 16, baseY - 51);
+                ctx.lineTo(cx - 16, baseY - 21);
+                ctx.stroke();
+            } else if (weapon === 'hammer') {
+                this._pxRect(ctx, cx + 15, baseY - 50, 5, 24, '#6e472b', '#181412');
+                this._pxRect(ctx, cx + 10, baseY - 56, 15, 10, '#5a6572', '#181412');
+            } else if (weapon === 'staff') {
+                this._pxRect(ctx, cx + 15, baseY - 60, 4, 38, '#8a5a36', '#181412');
+                ctx.fillStyle = '#4cc9f0';
+                ctx.fillRect(cx + 14, baseY - 64, 6, 6);
+            }
+            ctx.restore();
+        }
+
+        _pxRect(ctx, x, y, w, h, fill, outline) {
+            if (outline) {
+                ctx.fillStyle = outline;
+                ctx.fillRect(Math.round(x - 2), Math.round(y - 2), Math.round(w + 4), Math.round(h + 4));
+            }
+            ctx.fillStyle = fill;
+            ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+        }
+
+        _getPresetConfig(type) {
+            const presets = {
+                knight: {
+                    skinColor: '#f5cbb0',
+                    hairColor: '#4a3222',
+                    hairDark: '#2c1c12',
+                    armorMain: '#8c9ba8',
+                    armorTrim: '#c5d1db',
+                    pauldronColor: '#a8b7c4',
+                    gloveColor: '#52606d',
+                    pantsColor: '#36414d',
+                    bootColor: '#4a3222',
+                    cloakColor: '#8f2424',
+                    cloakDark: '#5e1414',
+                    emblem: 'crest',
+                    weapon: 'sword',
+                    hasShield: true
+                },
+                guardian: {
+                    skinColor: '#f5cbb0',
+                    hairColor: '#232328',
+                    hairDark: '#121216',
+                    armorMain: '#e8ece6',
+                    armorTrim: '#2d3630',
+                    pauldronColor: '#1f6e43',
+                    gloveColor: '#5c3c24',
+                    pantsColor: '#2b2b30',
+                    bootColor: '#5c3c24',
+                    cloakColor: '#1f6e43',
+                    cloakDark: '#14492c',
+                    emblem: 'ifpi',
+                    weapon: 'sword',
+                    hasShield: false
+                },
+                npc_blacksmith: {
+                    skinColor: '#e2ad8d',
+                    hairColor: '#3b281c',
+                    hairDark: '#21150e',
+                    beardColor: '#3b281c',
+                    armorMain: '#593a27',
+                    armorTrim: '#3d271a',
+                    gloveColor: '#383838',
+                    pantsColor: '#2f353b',
+                    bootColor: '#291d15',
+                    weapon: 'hammer'
+                },
+                npc_merchant: {
+                    skinColor: '#f7d3ba',
+                    hairColor: '#b55239',
+                    hairDark: '#7a311f',
+                    armorMain: '#2b6cb0',
+                    armorTrim: '#e5b94c',
+                    gloveColor: '#f7d3ba',
+                    pantsColor: '#4a3525',
+                    bootColor: '#5c3a21'
+                },
+                npc_elder: {
+                    skinColor: '#edd0bc',
+                    hairColor: '#dfe4ea',
+                    hairDark: '#a4b0be',
+                    beardColor: '#dfe4ea',
+                    armorMain: '#5b3e7a',
+                    armorTrim: '#d4af37',
+                    gloveColor: '#edd0bc',
+                    pantsColor: '#3b2a52',
+                    bootColor: '#4a3222',
+                    weapon: 'staff'
+                },
+                npc_guard: {
+                    skinColor: '#eec2a4',
+                    hairColor: '#8c6239',
+                    hairDark: '#593b1f',
+                    armorMain: '#637381',
+                    armorTrim: '#919eab',
+                    pauldronColor: '#7a8b99',
+                    gloveColor: '#454f5b',
+                    pantsColor: '#2c353d',
+                    bootColor: '#3b281c',
+                    weapon: 'sword',
+                    hasShield: true
+                },
+                npc_adventurer: {
+                    skinColor: '#f2c6a7',
+                    hairColor: '#c98a36',
+                    hairDark: '#875719',
+                    armorMain: '#38764b',
+                    armorTrim: '#8c5a32',
+                    cloakColor: '#6e472b',
+                    cloakDark: '#472c18',
+                    gloveColor: '#6e472b',
+                    pantsColor: '#4a3b2c',
+                    bootColor: '#593820',
+                    weapon: 'sword'
+                },
+                goblin_common: {
+                    isGoblin: true,
+                    skinColor: '#659c46',
+                    hairColor: '#355423',
+                    hairDark: '#213615',
+                    eyeHighlight: '#ff4d4d',
+                    armorMain: '#6e4b32',
+                    gloveColor: '#659c46',
+                    pantsColor: '#4a3222',
+                    bootColor: '#3b2618',
+                    weapon: 'club'
+                },
+                goblin_warrior: {
+                    isGoblin: true,
+                    scale: 1.16,
+                    skinColor: '#518536',
+                    hairColor: '#29421b',
+                    hairDark: '#18290f',
+                    eyeHighlight: '#ff9f1c',
+                    armorMain: '#5c6670',
+                    armorTrim: '#8c3b32',
+                    pauldronColor: '#6e7882',
+                    gloveColor: '#518536',
+                    pantsColor: '#3a3f45',
+                    bootColor: '#2b241e',
+                    weapon: 'greatsword',
+                    hasShield: true
+                },
+                goblin_archer: {
+                    isGoblin: true,
+                    skinColor: '#73ab52',
+                    hairColor: '#43692c',
+                    hairDark: '#263d18',
+                    eyeHighlight: '#ffd166',
+                    armorMain: '#4f5d38',
+                    cloakColor: '#384526',
+                    cloakDark: '#242e18',
+                    gloveColor: '#73ab52',
+                    pantsColor: '#3d3124',
+                    bootColor: '#2e2318',
+                    weapon: 'bow'
+                },
+                goblin_king: {
+                    isGoblin: true,
+                    scale: 1.48,
+                    crown: true,
+                    skinColor: '#3f7327',
+                    hairDark: '#19300e',
+                    eyeHighlight: '#ff2a2a',
+                    armorMain: '#383e47',
+                    armorTrim: '#e5b94c',
+                    pauldronColor: '#d4a235',
+                    cloakColor: '#8c1d1d',
+                    cloakDark: '#570e0e',
+                    gloveColor: '#3f7327',
+                    pantsColor: '#26292e',
+                    bootColor: '#422817',
+                    weapon: 'greatsword'
+                }
+            };
+            return presets[type] || presets.knight;
+        }
+
+        getItemIconURL(iconType) {
+            if (this.iconCache.has(iconType)) return this.iconCache.get(iconType);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 48;
+            canvas.height = 48;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            ctx.clearRect(0, 0, 48, 48);
+
+            if (iconType === 'potion_hp') {
+                ctx.fillStyle = '#2b1d14';
+                ctx.fillRect(20, 6, 8, 6);
+                ctx.fillStyle = '#c9b8a3';
+                ctx.fillRect(18, 12, 12, 4);
+                ctx.fillStyle = '#d9383a';
+                ctx.beginPath();
+                ctx.arc(24, 29, 13, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#4a1214';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.fillStyle = '#ff8a8c';
+                ctx.fillRect(18, 22, 4, 6);
+            } else if (iconType === 'potion_sp') {
+                ctx.fillStyle = '#2b1d14';
+                ctx.fillRect(20, 6, 8, 6);
+                ctx.fillStyle = '#3876d9';
+                ctx.beginPath();
+                ctx.arc(24, 29, 13, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#12294a';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.fillStyle = '#94c5ff';
+                ctx.fillRect(18, 22, 4, 6);
+            } else if (iconType.startsWith('sword')) {
+                const bladeColor = iconType === 'sword_royal' ? '#f5cb5c' : iconType === 'sword_steel' ? '#dce6f2' : '#9aa5b1';
+                ctx.save();
+                ctx.translate(24, 24);
+                ctx.rotate(-Math.PI / 4);
+                ctx.fillStyle = bladeColor;
+                ctx.fillRect(-3, -20, 6, 28);
+                ctx.strokeStyle = '#1f2933';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-3, -20, 6, 28);
+                ctx.fillStyle = '#d4a235';
+                ctx.fillRect(-9, 8, 18, 4);
+                ctx.fillStyle = '#5c3a21';
+                ctx.fillRect(-2, 12, 4, 8);
+                ctx.restore();
+            } else if (iconType.startsWith('shield')) {
+                ctx.fillStyle = iconType === 'shield_iron' ? '#7b8794' : '#8c5a32';
+                ctx.beginPath();
+                ctx.moveTo(12, 10);
+                ctx.lineTo(36, 10);
+                ctx.lineTo(34, 28);
+                ctx.lineTo(24, 40);
+                ctx.lineTo(14, 28);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#d4a235';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            } else if (iconType.startsWith('armor')) {
+                ctx.fillStyle = iconType === 'armor_knight' ? '#8c9ba8' : '#7c5332';
+                ctx.fillRect(12, 12, 24, 24);
+                ctx.strokeStyle = '#1f2933';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(12, 12, 24, 24);
+                ctx.fillStyle = '#d4a235';
+                ctx.fillRect(21, 14, 6, 18);
+            } else if (iconType.startsWith('boots')) {
+                ctx.fillStyle = '#6e472b';
+                ctx.fillRect(11, 16, 10, 20);
+                ctx.fillRect(25, 16, 10, 20);
+                ctx.fillStyle = '#d4a235';
+                ctx.fillRect(11, 16, 10, 4);
+                ctx.fillRect(25, 16, 10, 4);
+            } else if (iconType.startsWith('ring')) {
+                ctx.strokeStyle = '#f2c138';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(24, 26, 10, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.fillStyle = '#38b000';
+                ctx.fillRect(21, 12, 6, 6);
+            } else {
+                ctx.fillStyle = '#f2c138';
+                ctx.fillRect(10, 18, 28, 14);
+                ctx.fillStyle = '#d9383a';
+                ctx.fillRect(21, 22, 6, 6);
+            }
+
+            const url = canvas.toDataURL();
+            this.iconCache.set(iconType, url);
+            return url;
+        }
+    }
+
+    /* ==========================================================================
+       2. SpriteAnimator — Billboards 2D integrados ao mundo 3D
+       ========================================================================== */
+    class SpriteAnimator {
+        constructor(scene, texture, options = {}) {
+            this.scene = scene;
+            this.cols = 8;
+            this.rows = 4;
+
+            this.texture = texture.clone();
+            this.texture.needsUpdate = true;
+            this.texture.repeat.set(1 / this.cols, 1 / this.rows);
+
+            const width = options.width || 2.5;
+            const height = options.height || 2.5;
+
+            const geometry = new THREE.PlaneGeometry(width, height);
+            geometry.translate(0, height * 0.48, 0);
+
+            this.material = new THREE.MeshStandardMaterial({
+                map: this.texture,
+                transparent: true,
+                alphaTest: 0.35,
+                roughness: 0.85,
+                metalness: 0.05,
+                side: THREE.DoubleSide
+            });
+
+            this.mesh = new THREE.Mesh(geometry, this.material);
+            this.mesh.castShadow = true;
+            this.mesh.receiveShadow = false;
+            this.scene.add(this.mesh);
+
+            this.state = 'idle';
+            this.facingAngle = 0;
+            this.timer = Math.random() * 2;
+            this.stateTimer = 0;
+            this.frameCol = 0;
+            this.dirRow = 0;
+
+            this._updateUV();
+        }
+
+        setState(newState, duration = 0) {
+            if (this.state === 'dead' && newState !== 'idle') return;
+            if (this.state !== newState) {
+                this.state = newState;
+                this.timer = 0;
+                this.stateTimer = duration;
+            } else if (duration > 0) {
+                this.stateTimer = duration;
+            }
+        }
+
+        setPosition(x, y, z) {
+            this.mesh.position.set(x, y, z);
+        }
+
+        update(dt, cameraYaw) {
+            this.timer += dt;
+
+            if (this.stateTimer > 0) {
+                this.stateTimer -= dt;
+                if (this.stateTimer <= 0 && this.state !== 'dead') {
+                    this.state = 'idle';
+                }
+            }
+
+            this.mesh.rotation.set(0, cameraYaw, 0);
+
+            let relAngle = this.facingAngle - cameraYaw;
+            while (relAngle > Math.PI) relAngle -= Math.PI * 2;
+            while (relAngle < -Math.PI) relAngle += Math.PI * 2;
+
+            if (relAngle >= -Math.PI * 0.25 && relAngle < Math.PI * 0.25) {
+                this.dirRow = 0;
+            } else if (relAngle >= Math.PI * 0.25 && relAngle < Math.PI * 0.75) {
+                this.dirRow = 2;
+            } else if (relAngle >= -Math.PI * 0.75 && relAngle < -Math.PI * 0.25) {
+                this.dirRow = 1;
+            } else {
+                this.dirRow = 3;
+            }
+
+            if (this.state === 'idle') {
+                this.frameCol = Math.floor(this.timer * 2.4) % 2;
+                this.mesh.rotation.z = 0;
+            } else if (this.state === 'walk') {
+                this.frameCol = 2 + (Math.floor(this.timer * 8.5) % 4);
+                this.mesh.rotation.z = 0;
+            } else if (this.state === 'attack') {
+                this.frameCol = 6;
+                this.mesh.rotation.z = 0;
+            } else if (this.state === 'hurt') {
+                this.frameCol = 7;
+            } else if (this.state === 'dead') {
+                this.frameCol = 7;
+                this.mesh.rotation.z = Math.min(Math.PI * 0.45, this.timer * 4.5);
+            }
+
+            this._updateUV();
+        }
+
+        _updateUV() {
+            const u = this.frameCol / this.cols;
+            const v = 1 - (this.dirRow + 1) / this.rows;
+            this.texture.offset.set(u, v);
+        }
+
+        dispose() {
+            this.scene.remove(this.mesh);
+            this.mesh.geometry.dispose();
+            this.material.dispose();
+            this.texture.dispose();
+        }
+    }
+
+    /* ==========================================================================
+       3. WorldManager — Terreno 3D orgânico, Vilarejo, Floresta e Santuário
+       ========================================================================== */
+    class WorldManager {
+        constructor(scene) {
+            this.scene = scene;
+            this.colliders = [];
+            this.occludables = [];
+            this.torchLights = [];
+            this.foliageClusters = [];
+            this.waterMesh = null;
+            this.currentRegion = 'village';
+            this.regionNames = {
+                village: 'Vilarejo de Oakhaven',
+                forest: 'Floresta dos Goblins',
+                boss: 'Santuário do Goblin Rei'
+            };
+        }
+
+        buildWorld() {
+            this._setupLightingAndAtmosphere();
+            this._buildOrganicTerrain();
+            this._buildRiverAndBridge();
+            this._buildVillage();
+            this._buildGoblinForest();
+            this._buildBossSanctuary();
+        }
+
+        getTerrainHeight(x, z) {
+            const distVillage = Math.hypot(x - 0, z - 38);
+            if (distVillage < 24) return 0.15;
+
+            const riverCurveZ = 10.5 + Math.sin(x * 0.08) * 2.5;
+            const distRiver = Math.abs(z - riverCurveZ);
+            if (distRiver < 3.6 && Math.abs(x) < 3.6) return 0.45;
+            if (distRiver < 4.2) {
+                const t = 1 - distRiver / 4.2;
+                return -1.15 * t * t;
+            }
+
+            if (z < -52) {
+                const ramp = Math.min(1, (-52 - z) / 14);
+                return ramp * 1.4 + Math.sin(x * 0.12) * 0.12;
+            }
+
+            const roadDist = Math.abs(x - Math.sin(z * 0.05) * 4.5);
+            const roadFlatten = Math.min(1, Math.max(0, (roadDist - 2.5) / 8));
+            return (Math.sin(x * 0.07) * Math.cos(z * 0.07) * 1.35 +
+                    Math.sin(x * 0.16 + z * 0.11) * 0.45) * roadFlatten;
+        }
+
+        getRegionAt(x, z) {
+            if (z > 12) return 'village';
+            if (z > -48) return 'forest';
+            return 'boss';
+        }
+
+        _setupLightingAndAtmosphere() {
+            this.scene.background = new THREE.Color(0x88b4c8);
+            this.scene.fog = new THREE.FogExp2(0x9ec4b8, 0.0085);
+
+            const hemi = new THREE.HemisphereLight(0xfff5e4, 0x3b5932, 0.78);
+            hemi.position.set(0, 60, 0);
+            this.scene.add(hemi);
+
+            this.sunLight = new THREE.DirectionalLight(0xfff0d4, 1.35);
+            this.sunLight.position.set(42, 68, 45);
+            this.sunLight.castShadow = true;
+            this.sunLight.shadow.mapSize.width = 2048;
+            this.sunLight.shadow.mapSize.height = 2048;
+            this.sunLight.shadow.camera.near = 10;
+            this.sunLight.shadow.camera.far = 210;
+            const d = 85;
+            this.sunLight.shadow.camera.left = -d;
+            this.sunLight.shadow.camera.right = d;
+            this.sunLight.shadow.camera.top = d;
+            this.sunLight.shadow.camera.bottom = -d;
+            this.sunLight.shadow.bias = -0.0005;
+            this.scene.add(this.sunLight);
+        }
+
+        _createTerrainTexture() {
+            const size = 1024;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#4e7c36';
+            ctx.fillRect(0, 0, size, size);
+
+            for (let i = 0; i < 6500; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const r = 2 + Math.random() * 9;
+                const colors = ['#436e2c', '#5b8c3e', '#689946', '#3c6127', '#74a34e'];
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            for (let i = 0; i < 600; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                ctx.fillStyle = i % 3 === 0 ? '#f7e588' : i % 3 === 1 ? '#ffffff' : '#e88d9c';
+                ctx.fillRect(x, y, 2, 2);
+            }
+
+            const toPx = (wx, wz) => [
+                ((wx + 110) / 220) * size,
+                ((wz + 110) / 220) * size
+            ];
+
+            // Praça central do Vilarejo
+            const [vx, vz] = toPx(0, 38);
+            const plazaR = (17 / 220) * size;
+            ctx.fillStyle = '#9e9585';
+            ctx.beginPath();
+            ctx.arc(vx, vz, plazaR, 0, Math.PI * 2);
+            ctx.fill();
+
+            for (let i = 0; i < 550; i++) {
+                const a = Math.random() * Math.PI * 2;
+                const rad = Math.sqrt(Math.random()) * (plazaR - 4);
+                const sx = vx + Math.cos(a) * rad;
+                const sy = vz + Math.sin(a) * rad;
+                ctx.fillStyle = i % 2 === 0 ? '#b2a896' : '#857c6d';
+                ctx.fillRect(sx - 2, sy - 2, 5, 4);
+            }
+
+            // Estrada principal de terra batida
+            ctx.strokeStyle = '#9c7a54';
+            ctx.lineCap = 'round';
+            ctx.lineWidth = (5.4 / 220) * size;
+            ctx.beginPath();
+            for (let wz = 64; wz >= -76; wz -= 2) {
+                const wx = wz > 12 ? Math.sin((wz - 38) * 0.08) * 2.2 : Math.sin(wz * 0.05) * 4.5;
+                const [px, py] = toPx(wx, wz);
+                if (wz === 64) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+
+            ctx.strokeStyle = '#b38f66';
+            ctx.lineWidth = (2.6 / 220) * size;
+            ctx.stroke();
+
+            // Arena de pedra do Goblin Rei
+            const [bx, bz] = toPx(0, -72);
+            ctx.fillStyle = '#6e6a63';
+            ctx.beginPath();
+            ctx.arc(bx, bz, (14 / 220) * size, 0, Math.PI * 2);
+            ctx.fill();
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            tex.anisotropy = 8;
+            return tex;
+        }
+
+        _buildOrganicTerrain() {
+            const geo = new THREE.PlaneGeometry(220, 220, 180, 180);
+            geo.rotateX(-Math.PI / 2);
+
+            const pos = geo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                const x = pos.getX(i);
+                const z = pos.getZ(i);
+                pos.setY(i, this.getTerrainHeight(x, z));
+            }
+            geo.computeVertexNormals();
+
+            const mat = new THREE.MeshStandardMaterial({
+                map: this._createTerrainTexture(),
+                roughness: 0.92,
+                metalness: 0.02
+            });
+
+            const terrain = new THREE.Mesh(geo, mat);
+            terrain.receiveShadow = true;
+            this.scene.add(terrain);
+        }
+
+        _buildRiverAndBridge() {
+            const waterGeo = new THREE.PlaneGeometry(180, 12, 64, 8);
+            waterGeo.rotateX(-Math.PI / 2);
+            const waterMat = new THREE.MeshStandardMaterial({
+                color: 0x2b8cbe,
+                emissive: 0x0b3954,
+                emissiveIntensity: 0.25,
+                roughness: 0.18,
+                metalness: 0.35,
+                transparent: true,
+                opacity: 0.84
+            });
+            this.waterMesh = new THREE.Mesh(waterGeo, waterMat);
+            this.waterMesh.position.set(0, -0.35, 10.5);
+            this.scene.add(this.waterMesh);
+
+            const bridgeGroup = new THREE.Group();
+            bridgeGroup.position.set(0, 0.48, 10.5);
+
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x6e472b, roughness: 0.85 });
+            const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x4a2e1b, roughness: 0.9 });
+
+            for (let i = -8; i <= 8; i++) {
+                const archY = Math.cos((i / 8) * (Math.PI * 0.45)) * 0.35;
+                const plank = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.22, 0.56), woodMat);
+                plank.position.set(0, archY, i * 0.62);
+                plank.castShadow = true;
+                plank.receiveShadow = true;
+                bridgeGroup.add(plank);
+            }
+
+            for (const side of [-2.4, 2.4]) {
+                for (const pz of [-4.5, -1.5, 1.5, 4.5]) {
+                    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 1.35, 8), darkWoodMat);
+                    post.position.set(side, 0.72, pz);
+                    post.castShadow = true;
+                    bridgeGroup.add(post);
+                }
+                const rail = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 9.6), darkWoodMat);
+                rail.position.set(side, 1.25, 0);
+                bridgeGroup.add(rail);
+            }
+
+            this.scene.add(bridgeGroup);
+
+            for (let wx = -75; wx <= 75; wx += 4) {
+                if (Math.abs(wx) < 3.4) continue;
+                const rz = 10.5 + Math.sin(wx * 0.08) * 2.5;
+                this.colliders.push({ x: wx, z: rz, radius: 2.3 });
+            }
+        }
+
+        _createMedievalHouse(x, z, rotY, options = {}) {
+            const group = new THREE.Group();
+            const y = this.getTerrainHeight(x, z);
+            group.position.set(x, y, z);
+            group.rotation.y = rotY;
+
+            const w = options.width || 6.4;
+            const d = options.depth || 5.4;
+            const h = options.height || 3.4;
+            const roofColor = options.roofColor || 0x8c3b2b;
+
+            const stoneMat = new THREE.MeshStandardMaterial({ color: 0x78736a, roughness: 0.92 });
+            const plasterMat = new THREE.MeshStandardMaterial({ color: 0xe6dcc8, roughness: 0.85 });
+            const beamMat = new THREE.MeshStandardMaterial({ color: 0x4a2e1b, roughness: 0.88 });
+            const roofMat = new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.78 });
+            const windowMat = new THREE.MeshStandardMaterial({
+                color: 0xffd166,
+                emissive: 0xff9f1c,
+                emissiveIntensity: 0.55
+            });
+
+            const base = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, 0.65, d + 0.3), stoneMat);
+            base.position.y = 0.32;
+            base.castShadow = true;
+            base.receiveShadow = true;
+            group.add(base);
+
+            const walls = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), plasterMat);
+            walls.position.y = 0.65 + h / 2;
+            walls.castShadow = true;
+            walls.receiveShadow = true;
+            group.add(walls);
+
+            for (const bx of [-w / 2, w / 2]) {
+                for (const bz of [-d / 2, d / 2]) {
+                    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.28, h + 0.1, 0.28), beamMat);
+                    beam.position.set(bx, 0.65 + h / 2, bz);
+                    group.add(beam);
+                }
+            }
+
+            const roofH = 2.6;
+            const roofShape = new THREE.Shape();
+            roofShape.moveTo(-w / 2 - 0.55, 0);
+            roofShape.lineTo(w / 2 + 0.55, 0);
+            roofShape.lineTo(0, roofH);
+            roofShape.closePath();
+
+            const roofGeo = new THREE.ExtrudeGeometry(roofShape, {
+                depth: d + 0.9,
+                bevelEnabled: false
+            });
+            roofGeo.translate(0, 0, -(d + 0.9) / 2);
+            const roof = new THREE.Mesh(roofGeo, roofMat);
+            roof.position.y = 0.65 + h;
+            roof.castShadow = true;
+            roof.receiveShadow = true;
+            group.add(roof);
+            this.occludables.push(roof);
+
+            const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.85, 2.5, 0.85), stoneMat);
+            chimney.position.set(w * 0.28, 0.65 + h + 1.4, -d * 0.2);
+            chimney.castShadow = true;
+            group.add(chimney);
+
+            const door = new THREE.Mesh(new THREE.BoxGeometry(1.15, 2.05, 0.2), beamMat);
+            door.position.set(0, 1.35, d / 2 + 0.05);
+            group.add(door);
+
+            for (const wx of [-w * 0.28, w * 0.28]) {
+                const win = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.95, 0.18), windowMat);
+                win.position.set(wx, 2.35, d / 2 + 0.05);
+                group.add(win);
+            }
+
+            this.scene.add(group);
+            const r = Math.max(w, d) * 0.48;
+            this.colliders.push({ x, z, radius: r });
+        }
+
+        _createOrganicTree(x, z, scale = 1.0, darkForest = false) {
+            const group = new THREE.Group();
+            const y = this.getTerrainHeight(x, z);
+            group.position.set(x, y, z);
+
+            const trunkMat = new THREE.MeshStandardMaterial({
+                color: darkForest ? 0x3b281c : 0x593a24,
+                roughness: 0.95
+            });
+
+            const trunk = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.24 * scale, 0.48 * scale, 3.4 * scale, 9),
+                trunkMat
+            );
+            trunk.position.y = 1.7 * scale;
+            trunk.castShadow = true;
+            trunk.receiveShadow = true;
+            group.add(trunk);
+
+            const leafColors = darkForest
+                ? [0x244722, 0x2f5c2b, 0x1d3b1c]
+                : [0x3d7a32, 0x4e943e, 0x62ab4b];
+
+            const canopyGroup = new THREE.Group();
+            canopyGroup.position.y = 3.6 * scale;
+
+            const blobs = [
+                { x: 0, y: 0.8, z: 0, r: 1.95 },
+                { x: -1.1, y: 0.1, z: 0.6, r: 1.45 },
+                { x: 1.15, y: 0.15, z: -0.5, r: 1.5 },
+                { x: 0.2, y: 0.2, z: 1.1, r: 1.4 },
+                { x: -0.3, y: 1.65, z: -0.2, r: 1.35 }
+            ];
+
+            blobs.forEach((b, idx) => {
+                const geo = new THREE.DodecahedronGeometry(b.r * scale, 1);
+                const mat = new THREE.MeshStandardMaterial({
+                    color: leafColors[idx % leafColors.length],
+                    roughness: 0.85,
+                    flatShading: true
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(b.x * scale, b.y * scale, b.z * scale);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                canopyGroup.add(mesh);
+                this.occludables.push(mesh);
+            });
+
+            group.add(canopyGroup);
+            this.foliageClusters.push({ mesh: canopyGroup, phase: Math.random() * Math.PI * 2 });
+            this.scene.add(group);
+            this.colliders.push({ x, z, radius: 0.65 * scale });
+        }
+
+        _createRock(x, z, scale = 1.0) {
+            const y = this.getTerrainHeight(x, z);
+            const geo = new THREE.DodecahedronGeometry(0.9 * scale, 1);
+            const pos = geo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                const vx = pos.getX(i);
+                const vy = pos.getY(i);
+                const vz = pos.getZ(i);
+                const noise = 0.85 + Math.sin(vx * 4 + vz * 3) * 0.18;
+                pos.setXYZ(i, vx * noise * 1.2, vy * noise * 0.75, vz * noise);
+            }
+            geo.computeVertexNormals();
+
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0x7c807d,
+                roughness: 0.92,
+                flatShading: true
+            });
+            const rock = new THREE.Mesh(geo, mat);
+            rock.position.set(x, y + 0.35 * scale, z);
+            rock.castShadow = true;
+            rock.receiveShadow = true;
+            this.scene.add(rock);
+            this.colliders.push({ x, z, radius: 0.85 * scale });
+        }
+
+        _createTorchPost(x, z) {
+            const y = this.getTerrainHeight(x, z);
+            const group = new THREE.Group();
+            group.position.set(x, y, z);
+
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a2e1b, roughness: 0.9 });
+            const post = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, 2.5, 8), woodMat);
+            post.position.y = 1.25;
+            post.castShadow = true;
+            group.add(post);
+
+            const flameMat = new THREE.MeshBasicMaterial({ color: 0xff9f1c });
+            const flame = new THREE.Mesh(new THREE.OctahedronGeometry(0.24, 0), flameMat);
+            flame.position.y = 2.65;
+            group.add(flame);
+
+            const light = new THREE.PointLight(0xff9636, 1.35, 14);
+            light.position.set(0, 2.8, 0);
+            group.add(light);
+
+            this.torchLights.push({ light, flame, phase: Math.random() * 10 });
+            this.scene.add(group);
+        }
+
+        _createBarrelOrCrate(x, z, isBarrel = true) {
+            const y = this.getTerrainHeight(x, z);
+            const mat = new THREE.MeshStandardMaterial({
+                color: isBarrel ? 0x7c4d2b : 0x9c6b3e,
+                roughness: 0.86
+            });
+            const geo = isBarrel
+                ? new THREE.CylinderGeometry(0.42, 0.38, 0.95, 10)
+                : new THREE.BoxGeometry(0.85, 0.85, 0.85);
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, y + 0.45, z);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            this.scene.add(mesh);
+            this.colliders.push({ x, z, radius: 0.5 });
+        }
+
+        _buildVillage() {
+            const wellGroup = new THREE.Group();
+            wellGroup.position.set(0, this.getTerrainHeight(0, 38), 38);
+            const stoneMat = new THREE.MeshStandardMaterial({ color: 0x858077, roughness: 0.9 });
+            const rim = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.55, 0.95, 14), stoneMat);
+            rim.position.y = 0.48;
+            rim.castShadow = true;
+            wellGroup.add(rim);
+
+            const waterDisk = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.18, 1.18, 0.1, 14),
+                new THREE.MeshStandardMaterial({ color: 0x1d6fa3, roughness: 0.2 })
+            );
+            waterDisk.position.y = 0.65;
+            wellGroup.add(waterDisk);
+
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x593a24, roughness: 0.85 });
+            for (const sx of [-1.25, 1.25]) {
+                const p = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.2, 0.18), woodMat);
+                p.position.set(sx, 1.5, 0);
+                wellGroup.add(p);
+            }
+            const roof = new THREE.Mesh(
+                new THREE.ConeGeometry(1.85, 1.1, 4),
+                new THREE.MeshStandardMaterial({ color: 0x7c3626, roughness: 0.8 })
+            );
+            roof.position.y = 2.95;
+            roof.rotation.y = Math.PI / 4;
+            wellGroup.add(roof);
+            this.scene.add(wellGroup);
+            this.colliders.push({ x: 0, z: 38, radius: 1.65 });
+
+            this._createMedievalHouse(-15, 44, Math.PI * 0.35, { roofColor: 0x8c3b2b, width: 6.8, depth: 5.5 });
+            this._createMedievalHouse(15, 45, -Math.PI * 0.35, { roofColor: 0x2f5d7c, width: 6.5, depth: 5.2 });
+            this._createMedievalHouse(-16, 28, Math.PI * 0.5, { roofColor: 0x6e472b, width: 6.2, depth: 5.0 });
+            this._createMedievalHouse(16, 28, -Math.PI * 0.5, { roofColor: 0x3b6e4c, width: 6.0, depth: 5.0 });
+            this._createMedievalHouse(-11, 56, Math.PI * 0.15, { roofColor: 0x8c3b2b, width: 5.8, depth: 4.8 });
+
+            const awningMat = new THREE.MeshStandardMaterial({ color: 0xc94a38, roughness: 0.8 });
+            const stall = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.25, 1.8), awningMat);
+            stall.position.set(11.5, this.getTerrainHeight(11.5, 31) + 2.3, 31);
+            stall.rotation.z = 0.15;
+            stall.castShadow = true;
+            this.scene.add(stall);
+
+            this._createBarrelOrCrate(-12.2, 31.5, true);
+            this._createBarrelOrCrate(-11.4, 32.2, true);
+            this._createBarrelOrCrate(12.2, 32.5, false);
+            this._createBarrelOrCrate(11.3, 33.1, true);
+            this._createBarrelOrCrate(-10.5, 41.5, false);
+
+            this._createTorchPost(-7.5, 38);
+            this._createTorchPost(7.5, 38);
+            this._createTorchPost(-3.4, 18.5);
+            this._createTorchPost(3.4, 18.5);
+            this._createTorchPost(-8.5, 49);
+            this._createTorchPost(8.5, 49);
+
+            const fenceMat = new THREE.MeshStandardMaterial({ color: 0x6e472b, roughness: 0.9 });
+            for (let fx = -22; fx <= -6; fx += 2.2) {
+                const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.1, 0.18), fenceMat);
+                post.position.set(fx, this.getTerrainHeight(fx, 19) + 0.55, 19);
+                this.scene.add(post);
+                this.colliders.push({ x: fx, z: 19, radius: 0.45 });
+            }
+            for (let fx = 6; fx <= 22; fx += 2.2) {
+                const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.1, 0.18), fenceMat);
+                post.position.set(fx, this.getTerrainHeight(fx, 19) + 0.55, 19);
+                this.scene.add(post);
+                this.colliders.push({ x: fx, z: 19, radius: 0.45 });
+            }
+
+            const villageTrees = [
+                [-23, 52, 1.1], [23, 53, 1.05], [-24, 36, 1.15], [24, 35, 1.0],
+                [-21, 22, 0.95], [21, 22, 1.0], [-7, 58, 1.1], [9, 59, 1.15]
+            ];
+            villageTrees.forEach(([tx, tz, sc]) => this._createOrganicTree(tx, tz, sc, false));
+        }
+
+        _buildGoblinForest() {
+            const forestTrees = [
+                [-14, 2, 1.2], [-22, -4, 1.35], [-11, -12, 1.15], [-25, -18, 1.4],
+                [-15, -26, 1.25], [-24, -34, 1.3], [-12, -40, 1.2], [-20, -46, 1.35],
+                [13, 1, 1.15], [21, -5, 1.3], [12, -14, 1.2], [23, -20, 1.4],
+                [14, -28, 1.25], [22, -36, 1.3], [11, -42, 1.15], [19, -47, 1.35],
+                [-7, -21, 1.05], [8, -32, 1.1]
+            ];
+            forestTrees.forEach(([tx, tz, sc]) => this._createOrganicTree(tx, tz, sc, true));
+
+            const rocks = [
+                [-9, -6, 1.1], [10, -9, 1.25], [-16, -15, 1.4], [16, -24, 1.3],
+                [-10, -34, 1.15], [14, -38, 1.35]
+            ];
+            rocks.forEach(([rx, rz, sc]) => this._createRock(rx, rz, sc));
+
+            const logMat = new THREE.MeshStandardMaterial({ color: 0x4a311e, roughness: 0.95 });
+            const logs = [[-8.5, -16, 0.4], [9.5, -26, -0.5]];
+            logs.forEach(([lx, lz, rot]) => {
+                const log = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 3.2, 8), logMat);
+                log.rotation.z = Math.PI / 2;
+                log.rotation.y = rot;
+                log.position.set(lx, this.getTerrainHeight(lx, lz) + 0.3, lz);
+                log.castShadow = true;
+                this.scene.add(log);
+                this.colliders.push({ x: lx, z: lz, radius: 0.9 });
+            });
+
+            const capMat = new THREE.MeshStandardMaterial({
+                color: 0xd94e34,
+                emissive: 0x5c190d,
+                emissiveIntensity: 0.3
+            });
+            const stemMat = new THREE.MeshStandardMaterial({ color: 0xede6d6 });
+            for (let i = 0; i < 22; i++) {
+                const mx = (Math.random() - 0.5) * 38;
+                const mz = -4 - Math.random() * 40;
+                if (Math.abs(mx) < 3.5) continue;
+                const my = this.getTerrainHeight(mx, mz);
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.28, 6), stemMat);
+                stem.position.set(mx, my + 0.14, mz);
+                const cap = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.22, 8), capMat);
+                cap.position.set(mx, my + 0.32, mz);
+                this.scene.add(stem, cap);
+            }
+        }
+
+        _buildBossSanctuary() {
+            const pillarMat = new THREE.MeshStandardMaterial({ color: 0x5e5a54, roughness: 0.95 });
+            const radius = 14.5;
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2 + 0.3;
+                const px = Math.cos(angle) * radius;
+                const pz = -72 + Math.sin(angle) * radius;
+                const h = 3.2 + (i % 3) * 0.9;
+                const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.78, h, 8), pillarMat);
+                pillar.position.set(px, this.getTerrainHeight(px, pz) + h / 2, pz);
+                pillar.castShadow = true;
+                this.scene.add(pillar);
+                this.colliders.push({ x: px, z: pz, radius: 0.85 });
+            }
+
+            this._createTorchPost(-4.5, -56);
+            this._createTorchPost(4.5, -56);
+            this._createTorchPost(-8.5, -72);
+            this._createTorchPost(8.5, -72);
+        }
+
+        resolveCollisions(pos, entityRadius = 0.55) {
+            pos.x = Math.max(-34, Math.min(34, pos.x));
+            pos.z = Math.max(-88, Math.min(64, pos.z));
+
+            for (let i = 0; i < this.colliders.length; i++) {
+                const c = this.colliders[i];
+                const dx = pos.x - c.x;
+                const dz = pos.z - c.z;
+                const minDist = entityRadius + c.radius;
+                const distSq = dx * dx + dz * dz;
+                if (distSq < minDist * minDist && distSq > 0.0001) {
+                    const dist = Math.sqrt(distSq);
+                    const push = (minDist - dist);
+                    pos.x += (dx / dist) * push;
+                    pos.z += (dz / dist) * push;
+                }
+            }
+        }
+
+        update(dt, time, playerPos) {
+            if (this.waterMesh) {
+                this.waterMesh.position.y = -0.35 + Math.sin(time * 2.1) * 0.04;
+            }
+
+            for (const t of this.torchLights) {
+                const flicker = 1.25 + Math.sin(time * 11 + t.phase) * 0.22;
+                t.light.intensity = flicker;
+                const s = 0.9 + Math.sin(time * 14 + t.phase) * 0.18;
+                t.flame.scale.set(s, s * 1.2, s);
+            }
+
+            for (const f of this.foliageClusters) {
+                f.mesh.rotation.z = Math.sin(time * 1.3 + f.phase) * 0.025;
+            }
+
+            this.currentRegion = this.getRegionAt(playerPos.x, playerPos.z);
+        }
+    }
+
+    /* ==========================================================================
+       4. CameraController — Perspectiva oblíqua estilo Ragnarok + oclusão
+       ========================================================================== */
+    class CameraController {
+        constructor(camera, domElement) {
+            this.camera = camera;
+            this.yaw = 0;
+            this.pitch = 0.76;
+            this.distance = 17.5;
+            this.minDistance = 11.5;
+            this.maxDistance = 26.0;
+
+            this.currentLookAt = new THREE.Vector3(0, 1, 38);
+            this.shakeTime = 0;
+            this.shakeIntensity = 0;
+            this.fadedObjects = new Set();
+
+            domElement.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                this.distance = Math.max(
+                    this.minDistance,
+                    Math.min(this.maxDistance, this.distance + e.deltaY * 0.01)
+                );
+            }, { passive: false });
+        }
+
+        rotateYaw(delta) {
+            this.yaw += delta;
+        }
+
+        triggerShake(intensity = 0.35, duration = 0.22) {
+            this.shakeIntensity = intensity;
+            this.shakeTime = duration;
+        }
+
+        update(dt, targetPos, occludables) {
+            const desiredLookAt = new THREE.Vector3(targetPos.x, targetPos.y + 1.1, targetPos.z);
+            this.currentLookAt.lerp(desiredLookAt, Math.min(1, dt * 8.5));
+
+            const horizDist = Math.cos(this.pitch) * this.distance;
+            const vertDist = Math.sin(this.pitch) * this.distance;
+
+            const camX = this.currentLookAt.x + Math.sin(this.yaw) * horizDist;
+            const camZ = this.currentLookAt.z + Math.cos(this.yaw) * horizDist;
+            const camY = this.currentLookAt.y + vertDist;
+
+            this.camera.position.set(camX, camY, camZ);
+
+            if (this.shakeTime > 0) {
+                this.shakeTime -= dt;
+                this.camera.position.x += (Math.random() - 0.5) * this.shakeIntensity;
+                this.camera.position.y += (Math.random() - 0.5) * this.shakeIntensity;
+            }
+
+            this.camera.lookAt(this.currentLookAt);
+            this._handleOcclusion(occludables);
+        }
+
+        _handleOcclusion(occludables) {
+            for (const obj of this.fadedObjects) {
+                if (obj.material) {
+                    obj.material.transparent = false;
+                    obj.material.opacity = 1.0;
+                }
+            }
+            this.fadedObjects.clear();
+
+            if (!occludables) return;
+
+            const camPos = this.camera.position;
+            const target = this.currentLookAt;
+            const segX = target.x - camPos.x;
+            const segZ = target.z - camPos.z;
+            const segLenSq = segX * segX + segZ * segZ;
+            if (segLenSq < 0.01) return;
+
+            const worldPos = new THREE.Vector3();
+            for (let i = 0; i < occludables.length; i++) {
+                const obj = occludables[i];
+                obj.getWorldPosition(worldPos);
+                if (worldPos.z < target.z - 0.5) continue;
+
+                const t = Math.max(0, Math.min(1,
+                    ((worldPos.x - camPos.x) * segX + (worldPos.z - camPos.z) * segZ) / segLenSq
+                ));
+                const projX = camPos.x + t * segX;
+                const projZ = camPos.z + t * segZ;
+                const distSq = (worldPos.x - projX) ** 2 + (worldPos.z - projZ) ** 2;
+
+                if (distSq < 9.5 && obj.material) {
+                    obj.material.transparent = true;
+                    obj.material.opacity = 0.34;
+                    this.fadedObjects.add(obj);
+                }
+            }
+        }
+    }
+
+    /* ==========================================================================
+       5. ExperienceSystem — Níveis, EXP e 6 atributos (FOR, AGI, VIT, INT, DES, SOR)
+       ========================================================================== */
+    class ExperienceSystem {
+        constructor() {
+            this.level = 1;
+            this.exp = 0;
+            this.nextExp = 100;
+            this.statPoints = 5;
+
+            this.stats = {
+                str: 5,
+                agi: 5,
+                vit: 5,
+                int: 3,
+                dex: 5,
+                luk: 3
+            };
+
+            this.onLevelUp = null;
+        }
+
+        gainExp(amount) {
+            this.exp += amount;
+            let leveled = false;
+            while (this.exp >= this.nextExp) {
+                this.exp -= this.nextExp;
+                this.level += 1;
+                this.statPoints += 4;
+                this.nextExp = Math.round(100 * Math.pow(this.level, 1.45));
+                leveled = true;
+            }
+            if (leveled && this.onLevelUp) {
+                this.onLevelUp(this.level);
+            }
+            return leveled;
+        }
+
+        allocateStat(statKey) {
+            if (this.statPoints <= 0) return false;
+            if (!Object.prototype.hasOwnProperty.call(this.stats, statKey)) return false;
+            this.stats[statKey] += 1;
+            this.statPoints -= 1;
+            return true;
+        }
+
+        computeDerivedStats(equipBonuses) {
+            const s = this.stats;
+            const b = equipBonuses || { atk: 0, def: 0, maxHp: 0, maxSp: 0, speed: 0, crit: 0 };
+
+            const maxHp = 110 + (this.level - 1) * 18 + s.vit * 16 + b.maxHp;
+            const maxSp = 40 + (this.level - 1) * 6 + s.int * 8 + b.maxSp;
+            const atk = 12 + s.str * 3 + Math.floor(s.dex * 0.8) + b.atk;
+            const def = 4 + Math.floor(s.vit * 1.4) + Math.floor(s.agi * 0.4) + b.def;
+            const critChance = Math.min(0.65, 0.05 + s.luk * 0.018 + s.dex * 0.005 + b.crit);
+            const attackCooldown = Math.max(0.24, 0.52 - s.agi * 0.012);
+            const moveSpeed = 6.4 + Math.min(2.2, s.agi * 0.06) + b.speed;
+
+            return { maxHp, maxSp, atk, def, critChance, attackCooldown, moveSpeed };
+        }
+
+        serialize() {
+            return {
+                level: this.level,
+                exp: this.exp,
+                nextExp: this.nextExp,
+                statPoints: this.statPoints,
+                stats: { ...this.stats }
+            };
+        }
+
+        deserialize(data) {
+            if (!data) return;
+            this.level = data.level || 1;
+            this.exp = data.exp || 0;
+            this.nextExp = data.nextExp || 100;
+            this.statPoints = data.statPoints ?? 5;
+            if (data.stats) Object.assign(this.stats, data.stats);
+        }
+    }
+
+    /* ==========================================================================
+       6. EquipmentSystem — Espadas, Escudos, Armaduras, Botas e Acessórios
+       ========================================================================== */
+    class EquipmentSystem {
+        constructor() {
+            this.slots = {
+                weapon: null,
+                shield: null,
+                armor: null,
+                boots: null,
+                accessory: null
+            };
+        }
+
+        equip(item, inventorySystem) {
+            if (!item || !item.slot || !Object.prototype.hasOwnProperty.call(this.slots, item.slot)) {
+                return false;
+            }
+            const previous = this.slots[item.slot];
+            this.slots[item.slot] = item;
+            inventorySystem.removeItem(item.id, 1);
+            if (previous) {
+                inventorySystem.addItem(previous, 1);
+            }
+            return true;
+        }
+
+        unequip(slotName, inventorySystem) {
+            const current = this.slots[slotName];
+            if (!current) return false;
+            if (!inventorySystem.addItem(current, 1)) return false;
+            this.slots[slotName] = null;
+            return true;
+        }
+
+        getTotalBonuses() {
+            const totals = { atk: 0, def: 0, maxHp: 0, maxSp: 0, speed: 0, crit: 0 };
+            for (const slotKey of Object.keys(this.slots)) {
+                const item = this.slots[slotKey];
+                if (!item || !item.bonuses) continue;
+                totals.atk += item.bonuses.atk || 0;
+                totals.def += item.bonuses.def || 0;
+                totals.maxHp += item.bonuses.maxHp || 0;
+                totals.maxSp += item.bonuses.maxSp || 0;
+                totals.speed += item.bonuses.speed || 0;
+                totals.crit += item.bonuses.crit || 0;
+            }
+            return totals;
+        }
+
+        serialize() {
+            return JSON.parse(JSON.stringify(this.slots));
+        }
+
+        deserialize(data) {
+            if (!data) return;
+            for (const key of Object.keys(this.slots)) {
+                this.slots[key] = data[key] || null;
+            }
+        }
+    }
+
+    /* ==========================================================================
+       7. InventorySystem — Mochila, Poções, Zeny e Catálogo de Itens
+       ========================================================================== */
+    const ITEM_DATABASE = {
+        potion_red: {
+            id: 'potion_red',
+            name: 'Poção Vermelha',
+            type: 'consumable',
+            icon: 'potion_hp',
+            stackable: true,
+            price: 25,
+            healHp: 65,
+            desc: 'Restaura 65 pontos de Vida imediatamente.'
+        },
+        potion_blue: {
+            id: 'potion_blue',
+            name: 'Poção Azul',
+            type: 'consumable',
+            icon: 'potion_sp',
+            stackable: true,
+            price: 35,
+            healSp: 35,
+            desc: 'Restaura 35 pontos de Mana/SP.'
+        },
+        sword_iron: {
+            id: 'sword_iron',
+            name: 'Espada de Ferro',
+            type: 'equipment',
+            slot: 'weapon',
+            icon: 'sword_iron',
+            price: 80,
+            bonuses: { atk: 8 },
+            desc: 'Lâmina confiável forjada para recrutas de Oakhaven (+8 ATQ).'
+        },
+        sword_steel: {
+            id: 'sword_steel',
+            name: 'Lâmina de Aço Real',
+            type: 'equipment',
+            slot: 'weapon',
+            icon: 'sword_steel',
+            price: 220,
+            bonuses: { atk: 18, crit: 0.04 },
+            desc: 'Espada temperada pelo Ferreiro Borin (+18 ATQ, +4% Crítico).'
+        },
+        sword_royal: {
+            id: 'sword_royal',
+            name: 'Espada do Campeão',
+            type: 'equipment',
+            slot: 'weapon',
+            icon: 'sword_royal',
+            price: 450,
+            bonuses: { atk: 28, crit: 0.08 },
+            desc: 'Relíquia dourada capaz de cortar a armadura de reis goblins (+28 ATQ).'
+        },
+        shield_wood: {
+            id: 'shield_wood',
+            name: 'Broquel de Carvalho',
+            type: 'equipment',
+            slot: 'shield',
+            icon: 'shield_wood',
+            price: 60,
+            bonuses: { def: 5, maxHp: 15 },
+            desc: 'Escudo leve reforçado com aros de ferro (+5 DEF, +15 HP).'
+        },
+        shield_iron: {
+            id: 'shield_iron',
+            name: 'Escudo de Cavaleiro',
+            type: 'equipment',
+            slot: 'shield',
+            icon: 'shield_iron',
+            price: 190,
+            bonuses: { def: 12, maxHp: 35 },
+            desc: 'Escudo heráldico resistente a golpes pesados (+12 DEF, +35 HP).'
+        },
+        armor_leather: {
+            id: 'armor_leather',
+            name: 'Cota de Couro Batido',
+            type: 'equipment',
+            slot: 'armor',
+            icon: 'armor_leather',
+            price: 75,
+            bonuses: { def: 6, maxHp: 20 },
+            desc: 'Proteção flexível para batedores e cavaleiros (+6 DEF, +20 HP).'
+        },
+        armor_knight: {
+            id: 'armor_knight',
+            name: 'Peitoral de Placas',
+            type: 'equipment',
+            slot: 'armor',
+            icon: 'armor_knight',
+            price: 260,
+            bonuses: { def: 16, maxHp: 55 },
+            desc: 'Armadura completa de aço polido (+16 DEF, +55 HP).'
+        },
+        boots_traveler: {
+            id: 'boots_traveler',
+            name: 'Botas de Cavaleiro',
+            type: 'equipment',
+            slot: 'boots',
+            icon: 'boots_traveler',
+            price: 120,
+            bonuses: { def: 4, speed: 0.8 },
+            desc: 'Botas reforçadas que aumentam a agilidade em combate (+4 DEF, +Velocidade).'
+        },
+        ring_luck: {
+            id: 'ring_luck',
+            name: 'Anel do Trevo Dourado',
+            type: 'equipment',
+            slot: 'accessory',
+            icon: 'ring_luck',
+            price: 180,
+            bonuses: { crit: 0.08, atk: 4 },
+            desc: 'Talismã antigo que atrai golpes críticos (+8% Crítico, +4 ATQ).'
+        },
+        crown_goblin: {
+            id: 'crown_goblin',
+            name: 'Coroa do Goblin Rei',
+            type: 'trophy',
+            icon: 'crown_goblin',
+            price: 500,
+            desc: 'Prova irrefutável de que você libertou a floresta do Goblin Rei!'
+        }
+    };
+
+    class InventorySystem {
+        constructor(maxSlots = 20) {
+            this.maxSlots = maxSlots;
+            this.items = [];
+            this.gold = 120;
+        }
+
+        static getDatabase() {
+            return ITEM_DATABASE;
+        }
+
+        createItem(itemId) {
+            const template = ITEM_DATABASE[itemId];
+            return template ? JSON.parse(JSON.stringify(template)) : null;
+        }
+
+        addItem(itemOrId, qty = 1) {
+            const item = typeof itemOrId === 'string' ? this.createItem(itemOrId) : itemOrId;
+            if (!item) return false;
+
+            if (item.stackable) {
+                const existing = this.items.find(i => i.id === item.id);
+                if (existing) {
+                    existing.qty += qty;
+                    return true;
+                }
+            }
+
+            if (this.items.length >= this.maxSlots) return false;
+            this.items.push({ ...item, qty });
+            return true;
+        }
+
+        removeItem(itemId, qty = 1) {
+            const idx = this.items.findIndex(i => i.id === itemId);
+            if (idx === -1) return false;
+            this.items[idx].qty -= qty;
+            if (this.items[idx].qty <= 0) {
+                this.items.splice(idx, 1);
+            }
+            return true;
+        }
+
+        getCount(itemId) {
+            const found = this.items.find(i => i.id === itemId);
+            return found ? found.qty : 0;
+        }
+
+        useItem(itemId, player, equipmentSystem) {
+            const entry = this.items.find(i => i.id === itemId);
+            if (!entry) return { ok: false };
+
+            if (entry.type === 'consumable') {
+                let used = false;
+                if (entry.healHp && player.hp < player.maxHp) {
+                    player.hp = Math.min(player.maxHp, player.hp + entry.healHp);
+                    used = true;
+                }
+                if (entry.healSp && player.sp < player.maxSp) {
+                    player.sp = Math.min(player.maxSp, player.sp + entry.healSp);
+                    used = true;
+                }
+                if (used) {
+                    this.removeItem(itemId, 1);
+                    return { ok: true, kind: 'potion', item: entry };
+                }
+                return { ok: false, reason: 'Vida/Mana já estão no máximo!' };
+            }
+
+            if (entry.type === 'equipment') {
+                const equipped = equipmentSystem.equip(entry, this);
+                return { ok: equipped, kind: 'equip', item: entry };
+            }
+
+            return { ok: false };
+        }
+
+        serialize() {
+            return {
+                gold: this.gold,
+                items: JSON.parse(JSON.stringify(this.items))
+            };
+        }
+
+        deserialize(data) {
+            if (!data) return;
+            this.gold = data.gold ?? 120;
+            this.items = Array.isArray(data.items) ? data.items : [];
+        }
+    }
+
+    /* ==========================================================================
+       8. QuestSystem — Missões iniciais + Chefe Final com progresso automático
+       ========================================================================== */
+    class QuestSystem {
+        constructor() {
+            this.quests = [
+                {
+                    id: 'q1_elder',
+                    title: 'Primeiros Passos',
+                    giver: 'Aventureiro Kael',
+                    description: 'O Ancião Aldric conhece a história de Oakhaven e o motivo da agitação na floresta. Fale com ele na praça leste.',
+                    objectiveText: 'Conversar com o Ancião Aldric',
+                    type: 'talk',
+                    target: 'elder',
+                    current: 0,
+                    required: 1,
+                    rewards: { exp: 60, gold: 50, itemId: 'potion_red', itemQty: 2 },
+                    status: 'active'
+                },
+                {
+                    id: 'q2_goblins',
+                    title: 'Ameaça na Floresta',
+                    giver: 'Aventureiro Kael',
+                    description: 'Goblins comuns estão rondando a saída norte da ponte de madeira. Reduza o número deles para proteger os viajantes.',
+                    objectiveText: 'Derrotar Goblins Comuns',
+                    type: 'kill',
+                    target: 'goblin_common',
+                    current: 0,
+                    required: 5,
+                    rewards: { exp: 140, gold: 110, itemId: 'shield_wood', itemQty: 1 },
+                    status: 'available'
+                },
+                {
+                    id: 'q3_warrior',
+                    title: 'O Goblin Guerreiro',
+                    giver: 'Guarda Cedric',
+                    description: 'Um Goblin Guerreiro blindado lidera as patrulhas nas profundezas da floresta. Encontre-o e derrote-o!',
+                    objectiveText: 'Derrotar o Goblin Guerreiro Especial',
+                    type: 'kill',
+                    target: 'goblin_warrior_boss',
+                    current: 0,
+                    required: 1,
+                    rewards: { exp: 240, gold: 180, itemId: 'sword_steel', itemQty: 1 },
+                    status: 'available'
+                },
+                {
+                    id: 'q4_king',
+                    title: 'O Trono do Goblin Rei',
+                    giver: 'Ancião Aldric',
+                    description: 'Nas ruínas ao extremo norte reside o temível Goblin Rei. Derrote-o e retorne ao vilarejo como herói!',
+                    objectiveText: 'Derrotar o Goblin Rei',
+                    type: 'kill',
+                    target: 'goblin_king',
+                    current: 0,
+                    required: 1,
+                    rewards: { exp: 500, gold: 400, itemId: 'sword_royal', itemQty: 1 },
+                    status: 'available'
+                }
+            ];
+
+            this.onQuestUpdate = null;
+        }
+
+        getQuest(id) {
+            return this.quests.find(q => q.id === id);
+        }
+
+        acceptQuest(id) {
+            const q = this.getQuest(id);
+            if (q && q.status === 'available') {
+                q.status = 'active';
+                if (this.onQuestUpdate) this.onQuestUpdate(q, 'accepted');
+                return true;
+            }
+            return false;
+        }
+
+        notifyTalk(npcId) {
+            for (const q of this.quests) {
+                if (q.status === 'active' && q.type === 'talk' && q.target === npcId) {
+                    q.current = Math.min(q.required, q.current + 1);
+                    if (q.current >= q.required) q.status = 'ready';
+                    if (this.onQuestUpdate) this.onQuestUpdate(q, 'progress');
+                }
+            }
+        }
+
+        notifyKill(enemyKind) {
+            for (const q of this.quests) {
+                if (q.status === 'active' && q.type === 'kill' && q.target === enemyKind) {
+                    q.current = Math.min(q.required, q.current + 1);
+                    if (q.current >= q.required) q.status = 'ready';
+                    if (this.onQuestUpdate) this.onQuestUpdate(q, 'progress');
+                }
+            }
+        }
+
+        claimReward(id, expSystem, inventorySystem) {
+            const q = this.getQuest(id);
+            if (!q || q.status !== 'ready') return false;
+
+            q.status = 'completed';
+            expSystem.gainExp(q.rewards.exp);
+            inventorySystem.gold += q.rewards.gold;
+            if (q.rewards.itemId) {
+                inventorySystem.addItem(q.rewards.itemId, q.rewards.itemQty || 1);
+            }
+
+            if (id === 'q1_elder') {
+                const q2 = this.getQuest('q2_goblins');
+                if (q2 && q2.status === 'available') q2.status = 'active';
+            } else if (id === 'q2_goblins') {
+                const q3 = this.getQuest('q3_warrior');
+                if (q3 && q3.status === 'available') q3.status = 'active';
+            } else if (id === 'q3_warrior') {
+                const q4 = this.getQuest('q4_king');
+                if (q4 && q4.status === 'available') q4.status = 'active';
+            }
+
+            if (this.onQuestUpdate) this.onQuestUpdate(q, 'completed');
+            return true;
+        }
+
+        serialize() {
+            return this.quests.map(q => ({
+                id: q.id,
+                current: q.current,
+                status: q.status
+            }));
+        }
+
+        deserialize(data) {
+            if (!Array.isArray(data)) return;
+            for (const saved of data) {
+                const q = this.getQuest(saved.id);
+                if (q) {
+                    q.current = saved.current ?? 0;
+                    q.status = saved.status || q.status;
+                }
+            }
+        }
+    }
+
+    /* ==========================================================================
+       9. DialogueSystem — Janela de diálogo com retrato e ações
+       ========================================================================== */
+    class DialogueSystem {
+        constructor(spriteFactory, audioManager) {
+            this.spriteFactory = spriteFactory;
+            this.audioManager = audioManager;
+            this.isOpen = false;
+            this.currentNPC = null;
+            this.lines = [];
+            this.lineIndex = 0;
+            this.actions = [];
+
+            this.panel = document.getElementById('dialogue-box');
+            this.nameEl = document.getElementById('dialogue-npc-name');
+            this.roleEl = document.getElementById('dialogue-npc-role');
+            this.portraitEl = document.getElementById('dialogue-portrait');
+            this.textEl = document.getElementById('dialogue-text');
+            this.actionsEl = document.getElementById('dialogue-actions');
+        }
+
+        open(npc, lines, actions = []) {
+            this.isOpen = true;
+            this.currentNPC = npc;
+            this.lines = lines;
+            this.lineIndex = 0;
+            this.actions = actions;
+
+            this.nameEl.textContent = npc.name;
+            this.roleEl.textContent = npc.role;
+            this.portraitEl.src = this.spriteFactory.getPortraitDataURL(npc.spriteType);
+
+            this.panel.classList.remove('hidden');
+            if (this.audioManager) this.audioManager.playSFX('ui_open');
+            this._renderCurrentLine();
+        }
+
+        advance() {
+            if (!this.isOpen) return;
+            if (this.lineIndex < this.lines.length - 1) {
+                this.lineIndex++;
+                if (this.audioManager) this.audioManager.playSFX('ui_click');
+                this._renderCurrentLine();
+            } else if (this.actions.length === 0) {
+                this.close();
+            }
+        }
+
+        close() {
+            this.isOpen = false;
+            this.currentNPC = null;
+            this.panel.classList.add('hidden');
+            if (this.audioManager) this.audioManager.playSFX('ui_click');
+        }
+
+        _renderCurrentLine() {
+            this.textEl.textContent = this.lines[this.lineIndex];
+            this.actionsEl.innerHTML = '';
+
+            const isLast = this.lineIndex >= this.lines.length - 1;
+            if (!isLast) {
+                const nextBtn = document.createElement('button');
+                nextBtn.className = 'ro-btn primary';
+                nextBtn.textContent = 'Continuar [Espaço / E]';
+                nextBtn.onclick = () => this.advance();
+                this.actionsEl.appendChild(nextBtn);
+            } else {
+                for (const act of this.actions) {
+                    const btn = document.createElement('button');
+                    btn.className = `ro-btn ${act.primary ? 'primary' : ''}`;
+                    btn.textContent = act.label;
+                    btn.onclick = () => {
+                        if (act.onClick) act.onClick();
+                    };
+                    this.actionsEl.appendChild(btn);
+                }
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'ro-btn';
+                closeBtn.textContent = 'Encerrar Conversa [ESC]';
+                closeBtn.onclick = () => this.close();
+                this.actionsEl.appendChild(closeBtn);
+            }
+        }
+    }
+
+    /* ==========================================================================
+       10. NPCSystem — Os 5 NPCs interativos vivos no Vilarejo de Oakhaven
+       ========================================================================== */
+    class NPCSystem {
+        constructor(scene, spriteFactory, worldManager) {
+            this.scene = scene;
+            this.spriteFactory = spriteFactory;
+            this.worldManager = worldManager;
+            this.npcs = [];
+        }
+
+        spawnVillageNPCs() {
+            const definitions = [
+                {
+                    id: 'adventurer',
+                    name: 'Aventureiro Kael',
+                    role: 'Explorador da Guilda',
+                    spriteType: 'npc_adventurer',
+                    homeX: -3.2,
+                    homeZ: 34.5,
+                    patrolRadius: 2.2
+                },
+                {
+                    id: 'elder',
+                    name: 'Ancião Aldric',
+                    role: 'Sábio de Oakhaven',
+                    spriteType: 'npc_elder',
+                    homeX: 8.5,
+                    homeZ: 42.0,
+                    patrolRadius: 1.4
+                },
+                {
+                    id: 'blacksmith',
+                    name: 'Ferreiro Borin',
+                    role: 'Mestre da Forja',
+                    spriteType: 'npc_blacksmith',
+                    homeX: -11.0,
+                    homeZ: 28.5,
+                    patrolRadius: 1.5
+                },
+                {
+                    id: 'merchant',
+                    name: 'Comerciante Lira',
+                    role: 'Mercadora de Suprimentos',
+                    spriteType: 'npc_merchant',
+                    homeX: 10.8,
+                    homeZ: 29.0,
+                    patrolRadius: 1.2
+                },
+                {
+                    id: 'guard',
+                    name: 'Guarda Cedric',
+                    role: 'Sentinela da Ponte Norte',
+                    spriteType: 'npc_guard',
+                    homeX: 2.6,
+                    homeZ: 20.5,
+                    patrolRadius: 2.4
+                }
+            ];
+
+            for (const def of definitions) {
+                const tex = this.spriteFactory.getCharacterTexture(def.spriteType);
+                const animator = new SpriteAnimator(this.scene, tex, {
+                    width: 2.45,
+                    height: 2.45
+                });
+                const y = this.worldManager.getTerrainHeight(def.homeX, def.homeZ);
+                animator.setPosition(def.homeX, y, def.homeZ);
+
+                const marker = this._createMarkerSprite();
+                marker.position.set(def.homeX, y + 2.75, def.homeZ);
+                this.scene.add(marker);
+
+                this.npcs.push({
+                    ...def,
+                    pos: new THREE.Vector3(def.homeX, y, def.homeZ),
+                    targetPos: new THREE.Vector3(def.homeX, y, def.homeZ),
+                    animator,
+                    marker,
+                    waitTimer: 1.5 + Math.random() * 2.5
+                });
+            }
+        }
+
+        _createMarkerSprite() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#f5cb5c';
+            ctx.strokeStyle = '#1f160d';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(32, 32, 20, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#1f160d';
+            ctx.font = 'bold 28px Georgia, serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('!', 32, 33);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+            const sp = new THREE.Sprite(mat);
+            sp.scale.set(0.75, 0.75, 1);
+            return sp;
+        }
+
+        findNearestNPC(playerPos, maxDist = 3.4) {
+            let best = null;
+            let bestDist = maxDist;
+            for (const npc of this.npcs) {
+                const d = Math.hypot(npc.pos.x - playerPos.x, npc.pos.z - playerPos.z);
+                if (d < bestDist) {
+                    bestDist = d;
+                    best = npc;
+                }
+            }
+            return best;
+        }
+
+        interactWith(npc, game) {
+            const { dialogueSystem, questSystem, uiManager, expSystem, inventorySystem } = game;
+            questSystem.notifyTalk(npc.id);
+
+            if (npc.id === 'elder') {
+                const q1 = questSystem.getQuest('q1_elder');
+                const q4 = questSystem.getQuest('q4_king');
+                const lines = [
+                    'Bem-vindo a Oakhaven, jovem cavaleiro. Há gerações este vilarejo viveu em paz sob a sombra dos carvalhos.',
+                    'Nos últimos dias, porém, os Goblins da floresta ao norte organizaram-se sob o comando de um brutal Goblin Rei.',
+                    'Fortaleça seus atributos, equipe uma boa lâmina e ajude nosso povo a restaurar a serenidade do vale!'
+                ];
+                const actions = [];
+                if (q1 && q1.status === 'ready') {
+                    actions.push({
+                        label: 'Concluir Missão: Primeiros Passos (+60 EXP)',
+                        primary: true,
+                        onClick: () => {
+                            questSystem.claimReward('q1_elder', expSystem, inventorySystem);
+                            dialogueSystem.close();
+                            uiManager.showToast('Missão concluída! Nova missão: Ameaça na Floresta.');
+                        }
+                    });
+                }
+                if (q4 && q4.status === 'ready') {
+                    actions.push({
+                        label: 'Entregar Vitória: O Trono do Goblin Rei!',
+                        primary: true,
+                        onClick: () => {
+                            questSystem.claimReward('q4_king', expSystem, inventorySystem);
+                            dialogueSystem.close();
+                            uiManager.showVictoryModal();
+                        }
+                    });
+                }
+                dialogueSystem.open(npc, lines, actions);
+            } else if (npc.id === 'adventurer') {
+                const q1 = questSystem.getQuest('q1_elder');
+                const q2 = questSystem.getQuest('q2_goblins');
+                const lines = [
+                    'Saudações, camarada! A estrada norte atravessa a ponte de madeira e leva direto à Floresta dos Goblins.',
+                    'Use [WASD] para caminhar, [Botão Esquerdo] para golpear com sua espada e [Espaço] para esquivar de ataques!'
+                ];
+                const actions = [];
+                if (q1 && q1.status === 'available') {
+                    actions.push({
+                        label: 'Aceitar Missão: Primeiros Passos',
+                        primary: true,
+                        onClick: () => {
+                            questSystem.acceptQuest('q1_elder');
+                            dialogueSystem.close();
+                        }
+                    });
+                }
+                if (q2 && q2.status === 'available') {
+                    actions.push({
+                        label: 'Aceitar Missão: Ameaça na Floresta',
+                        primary: true,
+                        onClick: () => {
+                            questSystem.acceptQuest('q2_goblins');
+                            dialogueSystem.close();
+                        }
+                    });
+                } else if (q2 && q2.status === 'ready') {
+                    actions.push({
+                        label: 'Concluir Missão: Ameaça na Floresta (+140 EXP)',
+                        primary: true,
+                        onClick: () => {
+                            questSystem.claimReward('q2_goblins', expSystem, inventorySystem);
+                            dialogueSystem.close();
+                            uiManager.showToast('Recompensa recebida! Broquel de Carvalho adicionado ao inventário.');
+                        }
+                    });
+                }
+                dialogueSystem.open(npc, lines, actions);
+            } else if (npc.id === 'blacksmith') {
+                const lines = [
+                    'O aço canta quando bem temperado! Cada espada, escudo e peitoral que você equipa altera diretamente seu Ataque e Defesa.',
+                    'Abra seu Inventário com [I] para equipar novas peças e pressione [C] para distribuir seus pontos de atributo!'
+                ];
+                const actions = [
+                    {
+                        label: 'Ver Armas & Armaduras (Loja)',
+                        primary: true,
+                        onClick: () => {
+                            dialogueSystem.close();
+                            uiManager.openShop('blacksmith');
+                        }
+                    }
+                ];
+                dialogueSystem.open(npc, lines, actions);
+            } else if (npc.id === 'merchant') {
+                const lines = [
+                    'Poções Vermelhas fresquinhas e suprimentos de viagem! Nunca entre na Floresta dos Goblins sem estoque na mochila.',
+                    'Você pode usar suas Poções rapidamente pressionando as teclas [1] (Vida) ou [2] (Mana) durante a batalha!'
+                ];
+                const actions = [
+                    {
+                        label: 'Abrir Loja de Suprimentos',
+                        primary: true,
+                        onClick: () => {
+                            dialogueSystem.close();
+                            uiManager.openShop('merchant');
+                        }
+                    }
+                ];
+                dialogueSystem.open(npc, lines, actions);
+            } else if (npc.id === 'guard') {
+                const q3 = questSystem.getQuest('q3_warrior');
+                const lines = [
+                    'Alto lá! Além desta ponte começa a Floresta dos Goblins. Cuidado com os Arqueiros que atacam à distância.',
+                    'Um Goblin Guerreiro blindado tem comandado emboscadas no coração da mata. Se puder derrotá-lo, Oakhaven estará em dívida com você.'
+                ];
+                const actions = [];
+                if (q3 && q3.status === 'available') {
+                    actions.push({
+                        label: 'Aceitar Missão: O Goblin Guerreiro',
+                        primary: true,
+                        onClick: () => {
+                            questSystem.acceptQuest('q3_warrior');
+                            dialogueSystem.close();
+                        }
+                    });
+                } else if (q3 && q3.status === 'ready') {
+                    actions.push({
+                        label: 'Concluir Missão: O Goblin Guerreiro (+240 EXP)',
+                        primary: true,
+                        onClick: () => {
+                            questSystem.claimReward('q3_warrior', expSystem, inventorySystem);
+                            dialogueSystem.close();
+                            uiManager.showToast('Você recebeu a Lâmina de Aço Real!');
+                        }
+                    });
+                }
+                dialogueSystem.open(npc, lines, actions);
+            }
+        }
+
+        update(dt, time, cameraYaw, dialogueOpen) {
+            for (const npc of this.npcs) {
+                npc.marker.position.y = npc.pos.y + 2.75 + Math.sin(time * 3.5 + npc.homeX) * 0.1;
+
+                if (dialogueOpen) {
+                    npc.animator.setState('idle');
+                    npc.animator.update(dt, cameraYaw);
+                    continue;
+                }
+
+                const distToTarget = Math.hypot(npc.targetPos.x - npc.pos.x, npc.targetPos.z - npc.pos.z);
+                if (distToTarget > 0.15) {
+                    const dx = npc.targetPos.x - npc.pos.x;
+                    const dz = npc.targetPos.z - npc.pos.z;
+                    const len = Math.hypot(dx, dz);
+                    const step = Math.min(len, 1.55 * dt);
+                    npc.pos.x += (dx / len) * step;
+                    npc.pos.z += (dz / len) * step;
+                    npc.pos.y = this.worldManager.getTerrainHeight(npc.pos.x, npc.pos.z);
+                    npc.animator.facingAngle = Math.atan2(dx, dz);
+                    npc.animator.setState('walk');
+                } else {
+                    npc.animator.setState('idle');
+                    npc.waitTimer -= dt;
+                    if (npc.waitTimer <= 0) {
+                        npc.waitTimer = 2.5 + Math.random() * 3.5;
+                        const angle = Math.random() * Math.PI * 2;
+                        const r = Math.random() * npc.patrolRadius;
+                        npc.targetPos.set(
+                            npc.homeX + Math.cos(angle) * r,
+                            0,
+                            npc.homeZ + Math.sin(angle) * r
+                        );
+                    }
+                }
+
+                npc.animator.setPosition(npc.pos.x, npc.pos.y, npc.pos.z);
+                npc.animator.update(dt, cameraYaw);
+            }
+        }
+    }
+
+    /* ==========================================================================
+       11. PlayerController — Movimentação WASD, Esquiva, Terreno e Colisão
+       ========================================================================== */
+    class PlayerController {
+        constructor(scene, spriteFactory, worldManager, expSystem, equipmentSystem) {
+            this.scene = scene;
+            this.spriteFactory = spriteFactory;
+            this.worldManager = worldManager;
+            this.expSystem = expSystem;
+            this.equipmentSystem = equipmentSystem;
+
+            this.name = 'Sir Aldren';
+            this.skinType = 'knight';
+
+            const tex = this.spriteFactory.getCharacterTexture(this.skinType);
+            this.animator = new SpriteAnimator(scene, tex, {
+                width: 2.55,
+                height: 2.55
+            });
+
+            this.pos = new THREE.Vector3(0, worldManager.getTerrainHeight(0, 44), 44);
+            this.animator.setPosition(this.pos.x, this.pos.y, this.pos.z);
+
+            const derived = this.getDerivedStats();
+            this.maxHp = derived.maxHp;
+            this.hp = this.maxHp;
+            this.maxSp = derived.maxSp;
+            this.sp = this.maxSp;
+
+            this.attackCooldown = 0;
+            this.dodgeCooldown = 0;
+            this.dodgeTimer = 0;
+            this.dodgeDir = new THREE.Vector2(0, 1);
+            this.invulnTimer = 0;
+            this.stepSoundTimer = 0;
+            this.isDead = false;
+        }
+
+        setSkin(skinType) {
+            if (this.skinType === skinType) return;
+            this.skinType = skinType;
+            const tex = this.spriteFactory.getCharacterTexture(skinType);
+            this.animator.dispose();
+            this.animator = new SpriteAnimator(this.scene, tex, {
+                width: 2.55,
+                height: 2.55
+            });
+            this.animator.setPosition(this.pos.x, this.pos.y, this.pos.z);
+        }
+
+        getDerivedStats() {
+            return this.expSystem.computeDerivedStats(this.equipmentSystem.getTotalBonuses());
+        }
+
+        recalculateVitals(healFull = false) {
+            const d = this.getDerivedStats();
+            this.maxHp = d.maxHp;
+            this.maxSp = d.maxSp;
+            if (healFull) {
+                this.hp = this.maxHp;
+                this.sp = this.maxSp;
+            } else {
+                this.hp = Math.min(this.hp, this.maxHp);
+                this.sp = Math.min(this.sp, this.maxSp);
+            }
+        }
+
+        triggerDodge() {
+            if (this.isDead || this.dodgeCooldown > 0 || this.dodgeTimer > 0) return false;
+            this.dodgeTimer = 0.22;
+            this.dodgeCooldown = 0.95;
+            this.invulnTimer = 0.32;
+            const angle = this.animator.facingAngle;
+            this.dodgeDir.set(Math.sin(angle), Math.cos(angle));
+            return true;
+        }
+
+        update(dt, keys, cameraYaw, audioManager, uiLocked) {
+            if (this.isDead) {
+                this.animator.setState('dead');
+                this.animator.update(dt, cameraYaw);
+                return;
+            }
+
+            const derived = this.getDerivedStats();
+            this.maxHp = derived.maxHp;
+            this.maxSp = derived.maxSp;
+
+            this.hp = Math.min(this.maxHp, this.hp + dt * 1.4);
+            this.sp = Math.min(this.maxSp, this.sp + dt * 2.2);
+
+            if (this.attackCooldown > 0) this.attackCooldown -= dt;
+            if (this.dodgeCooldown > 0) this.dodgeCooldown -= dt;
+            if (this.invulnTimer > 0) this.invulnTimer -= dt;
+
+            let moveX = 0;
+            let moveZ = 0;
+
+            if (!uiLocked) {
+                if (keys['KeyW'] || keys['ArrowUp']) moveZ -= 1;
+                if (keys['KeyS'] || keys['ArrowDown']) moveZ += 1;
+                if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+                if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+            }
+
+            if (this.dodgeTimer > 0) {
+                this.dodgeTimer -= dt;
+                const dashSpeed = derived.moveSpeed * 2.35;
+                this.pos.x += this.dodgeDir.x * dashSpeed * dt;
+                this.pos.z += this.dodgeDir.y * dashSpeed * dt;
+                this.animator.setState('walk');
+            } else if (moveX !== 0 || moveZ !== 0) {
+                const len = Math.hypot(moveX, moveZ);
+                const nx = moveX / len;
+                const nz = moveZ / len;
+
+                const sin = Math.sin(cameraYaw);
+                const cos = Math.cos(cameraYaw);
+                const worldDX = nx * cos + nz * sin;
+                const worldDZ = -nx * sin + nz * cos;
+
+                this.pos.x += worldDX * derived.moveSpeed * dt;
+                this.pos.z += worldDZ * derived.moveSpeed * dt;
+
+                this.animator.facingAngle = Math.atan2(worldDX, worldDZ);
+                if (this.animator.state !== 'attack' && this.animator.state !== 'hurt') {
+                    this.animator.setState('walk');
+                }
+
+                this.stepSoundTimer -= dt;
+                if (this.stepSoundTimer <= 0) {
+                    this.stepSoundTimer = 0.34;
+                    if (audioManager) audioManager.playSFX('step');
+                }
+            } else {
+                if (this.animator.state === 'walk') {
+                    this.animator.setState('idle');
+                }
+            }
+
+            this.worldManager.resolveCollisions(this.pos, 0.55);
+            this.pos.y = this.worldManager.getTerrainHeight(this.pos.x, this.pos.z);
+            this.animator.setPosition(this.pos.x, this.pos.y, this.pos.z);
+            this.animator.update(dt, cameraYaw);
+        }
+
+        respawnAtVillage() {
+            this.isDead = false;
+            this.pos.set(0, this.worldManager.getTerrainHeight(0, 44), 44);
+            this.recalculateVitals(true);
+            this.animator.setState('idle');
+            this.animator.setPosition(this.pos.x, this.pos.y, this.pos.z);
+        }
+    }
+
+    /* ==========================================================================
+       12. EnemyAI — Goblins Comuns, Guerreiros, Arqueiros e Goblin Rei
+       ========================================================================== */
+    class EnemyAI {
+        constructor(scene, spriteFactory, worldManager) {
+            this.scene = scene;
+            this.spriteFactory = spriteFactory;
+            this.worldManager = worldManager;
+            this.enemies = [];
+        }
+
+        spawnInitialEnemies() {
+            const spawns = [
+                { kind: 'goblin_common', name: 'Goblin Batedor', x: -6, z: -3, hp: 55, atk: 11, def: 2, exp: 32, gold: 18, speed: 3.6, range: 1.85 },
+                { kind: 'goblin_common', name: 'Goblin Saqueador', x: 7, z: -6, hp: 55, atk: 11, def: 2, exp: 32, gold: 18, speed: 3.6, range: 1.85 },
+                { kind: 'goblin_common', name: 'Goblin Batedor', x: -4, z: -15, hp: 60, atk: 12, def: 2, exp: 35, gold: 20, speed: 3.7, range: 1.85 },
+                { kind: 'goblin_common', name: 'Goblin Batedor', x: 6, z: -19, hp: 60, atk: 12, def: 2, exp: 35, gold: 20, speed: 3.7, range: 1.85 },
+                { kind: 'goblin_common', name: 'Goblin Furtivo', x: -8, z: -27, hp: 65, atk: 13, def: 3, exp: 38, gold: 22, speed: 3.8, range: 1.85 },
+                { kind: 'goblin_common', name: 'Goblin Furtivo', x: 5, z: -33, hp: 65, atk: 13, def: 3, exp: 38, gold: 22, speed: 3.8, range: 1.85 },
+
+                { kind: 'goblin_archer', name: 'Goblin Arqueiro', x: 10, z: -14, hp: 52, atk: 14, def: 1, exp: 42, gold: 25, speed: 3.1, range: 9.5, ranged: true },
+                { kind: 'goblin_archer', name: 'Goblin Arqueiro', x: -11, z: -31, hp: 56, atk: 15, def: 2, exp: 45, gold: 28, speed: 3.1, range: 9.5, ranged: true },
+
+                { kind: 'goblin_warrior', name: 'Goblin Guarda', x: 3, z: -26, hp: 95, atk: 17, def: 5, exp: 65, gold: 40, speed: 3.2, range: 2.1 },
+                { kind: 'goblin_warrior_boss', spriteKey: 'goblin_warrior', name: 'Capitão Goblin Guerreiro', x: -2, z: -41, hp: 155, atk: 22, def: 7, exp: 130, gold: 85, speed: 3.4, range: 2.3, isElite: true },
+
+                { kind: 'goblin_king', spriteKey: 'goblin_king', name: 'Goblin Rei Grakthar', x: 0, z: -72, hp: 360, atk: 30, def: 10, exp: 350, gold: 250, speed: 3.5, range: 2.7, isBoss: true }
+            ];
+
+            for (const cfg of spawns) {
+                this._createEnemy(cfg);
+            }
+        }
+
+        _createEnemy(cfg) {
+            const spriteKey = cfg.spriteKey || cfg.kind;
+            const tex = this.spriteFactory.getCharacterTexture(spriteKey);
+            const size = cfg.isBoss ? 3.55 : cfg.isElite ? 2.85 : 2.35;
+            const animator = new SpriteAnimator(this.scene, tex, {
+                width: size,
+                height: size
+            });
+
+            const y = this.worldManager.getTerrainHeight(cfg.x, cfg.z);
+            animator.setPosition(cfg.x, y, cfg.z);
+
+            const hpBar = this._createOverheadHpBar(cfg.isBoss ? 2.4 : 1.4);
+            hpBar.group.position.set(cfg.x, y + size * 0.96, cfg.z);
+            this.scene.add(hpBar.group);
+
+            this.enemies.push({
+                ...cfg,
+                homePos: new THREE.Vector3(cfg.x, y, cfg.z),
+                pos: new THREE.Vector3(cfg.x, y, cfg.z),
+                patrolTarget: new THREE.Vector3(cfg.x, y, cfg.z),
+                maxHp: cfg.hp,
+                hp: cfg.hp,
+                animator,
+                hpBar,
+                state: 'PATROL',
+                attackTimer: 0,
+                waitTimer: 1 + Math.random() * 2,
+                respawnTimer: 0,
+                specialCooldown: 4.5
+            });
+        }
+
+        _createOverheadHpBar(width) {
+            const group = new THREE.Group();
+            const bg = new THREE.Mesh(
+                new THREE.PlaneGeometry(width, 0.16),
+                new THREE.MeshBasicMaterial({ color: 0x1a120b, side: THREE.DoubleSide })
+            );
+            const fill = new THREE.Mesh(
+                new THREE.PlaneGeometry(width - 0.06, 0.10),
+                new THREE.MeshBasicMaterial({ color: 0xd9383a, side: THREE.DoubleSide })
+            );
+            fill.position.z = 0.01;
+            group.add(bg, fill);
+            return { group, fill, width: width - 0.06 };
+        }
+
+        update(dt, cameraYaw, player, combatSystem, audioManager) {
+            for (const e of this.enemies) {
+                e.hpBar.group.rotation.set(0, cameraYaw, 0);
+
+                if (e.state === 'DEAD') {
+                    e.animator.setState('dead');
+                    e.animator.update(dt, cameraYaw);
+                    e.hpBar.group.visible = false;
+
+                    if (!e.isBoss && !e.isElite) {
+                        e.respawnTimer -= dt;
+                        if (e.respawnTimer <= 0) {
+                            e.state = 'PATROL';
+                            e.hp = e.maxHp;
+                            e.pos.copy(e.homePos);
+                            e.hpBar.group.visible = true;
+                            e.animator.setState('idle');
+                        }
+                    }
+                    continue;
+                }
+
+                const ratio = Math.max(0, e.hp / e.maxHp);
+                e.hpBar.fill.scale.x = Math.max(0.001, ratio);
+                e.hpBar.fill.position.x = -(1 - ratio) * (e.hpBar.width * 0.5);
+
+                if (e.attackTimer > 0) e.attackTimer -= dt;
+                if (e.specialCooldown > 0) e.specialCooldown -= dt;
+
+                const distPlayer = Math.hypot(player.pos.x - e.pos.x, player.pos.z - e.pos.z);
+                const distHome = Math.hypot(e.pos.x - e.homePos.x, e.pos.z - e.homePos.z);
+                const aggroRange = e.isBoss ? 14.5 : 10.5;
+                const leashRange = e.isBoss ? 22.0 : 18.0;
+
+                if (!player.isDead && distPlayer < aggroRange && distHome < leashRange) {
+                    e.state = 'CHASE';
+                } else if (distHome >= leashRange || player.isDead) {
+                    e.state = 'PATROL';
+                }
+
+                if (e.state === 'CHASE') {
+                    const dx = player.pos.x - e.pos.x;
+                    const dz = player.pos.z - e.pos.z;
+                    e.animator.facingAngle = Math.atan2(dx, dz);
+
+                    if (distPlayer <= e.range) {
+                        if (e.attackTimer <= 0) {
+                            e.attackTimer = e.isBoss ? 1.35 : e.ranged ? 1.85 : 1.45;
+                            e.animator.setState('attack', 0.35);
+
+                            if (e.isBoss && e.specialCooldown <= 0) {
+                                e.specialCooldown = 6.0;
+                                combatSystem.performBossSlam(e, player, audioManager);
+                            } else if (e.ranged) {
+                                combatSystem.spawnArrow(e.pos, player.pos, e.atk, audioManager);
+                            } else {
+                                combatSystem.enemyMeleeHit(e, player, audioManager);
+                            }
+                        } else if (e.animator.state !== 'attack' && e.animator.state !== 'hurt') {
+                            e.animator.setState('idle');
+                        }
+                    } else {
+                        const len = Math.hypot(dx, dz);
+                        e.pos.x += (dx / len) * e.speed * dt;
+                        e.pos.z += (dz / len) * e.speed * dt;
+                        if (e.animator.state !== 'hurt') e.animator.setState('walk');
+                    }
+                } else {
+                    const dPatrol = Math.hypot(e.patrolTarget.x - e.pos.x, e.patrolTarget.z - e.pos.z);
+                    if (dPatrol > 0.25) {
+                        const dx = e.patrolTarget.x - e.pos.x;
+                        const dz = e.patrolTarget.z - e.pos.z;
+                        const len = Math.hypot(dx, dz);
+                        e.pos.x += (dx / len) * (e.speed * 0.45) * dt;
+                        e.pos.z += (dz / len) * (e.speed * 0.45) * dt;
+                        e.animator.facingAngle = Math.atan2(dx, dz);
+                        if (e.animator.state !== 'hurt') e.animator.setState('walk');
+                    } else {
+                        if (e.animator.state !== 'hurt') e.animator.setState('idle');
+                        e.waitTimer -= dt;
+                        if (e.waitTimer <= 0) {
+                            e.waitTimer = 2.0 + Math.random() * 3.0;
+                            const a = Math.random() * Math.PI * 2;
+                            const r = 1.5 + Math.random() * 3.8;
+                            e.patrolTarget.set(
+                                e.homePos.x + Math.cos(a) * r,
+                                0,
+                                e.homePos.z + Math.sin(a) * r
+                            );
+                        }
+                    }
+                }
+
+                this.worldManager.resolveCollisions(e.pos, 0.55);
+                e.pos.y = this.worldManager.getTerrainHeight(e.pos.x, e.pos.z);
+                e.animator.setPosition(e.pos.x, e.pos.y, e.pos.z);
+                e.hpBar.group.position.set(e.pos.x, e.pos.y + (e.isBoss ? 3.3 : 2.3), e.pos.z);
+                e.animator.update(dt, cameraYaw);
+            }
+        }
+    }
+
+    /* ==========================================================================
+       13. CombatSystem — Golpes em tempo real, projéteis e números flutuantes
+       ========================================================================== */
+    class CombatSystem {
+        constructor(scene, camera) {
+            this.scene = scene;
+            this.camera = camera;
+            this.effects = [];
+            this.projectiles = [];
+            this.floatingTexts = [];
+            this.layerEl = document.getElementById('floating-numbers-layer');
+        }
+
+        playerBasicAttack(player, enemyAI, questSystem, expSystem, inventorySystem, cameraController, audioManager, uiManager) {
+            if (player.isDead || player.attackCooldown > 0) return false;
+
+            const derived = player.getDerivedStats();
+            player.attackCooldown = derived.attackCooldown;
+            player.animator.setState('attack', 0.28);
+            if (audioManager) audioManager.playSFX('sword');
+
+            const angle = player.animator.facingAngle;
+            const slashPos = new THREE.Vector3(
+                player.pos.x + Math.sin(angle) * 1.35,
+                player.pos.y + 1.05,
+                player.pos.z + Math.cos(angle) * 1.35
+            );
+            this._spawnSlashArc(slashPos, angle, 0x9be7ff);
+
+            let hitAny = false;
+            const reach = 2.85;
+
+            for (const e of enemyAI.enemies) {
+                if (e.state === 'DEAD') continue;
+                const dx = e.pos.x - player.pos.x;
+                const dz = e.pos.z - player.pos.z;
+                const dist = Math.hypot(dx, dz);
+                if (dist > reach) continue;
+
+                const toEnemyAngle = Math.atan2(dx, dz);
+                let diff = toEnemyAngle - angle;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+
+                if (Math.abs(diff) <= Math.PI * 0.62 || dist < 1.3) {
+                    hitAny = true;
+                    const isCrit = Math.random() < derived.critChance;
+                    const variance = 0.88 + Math.random() * 0.24;
+                    let dmg = Math.max(2, Math.round((derived.atk - e.def * 0.65) * variance));
+                    if (isCrit) dmg = Math.round(dmg * 1.75);
+
+                    e.hp -= dmg;
+                    e.state = 'CHASE';
+                    e.animator.setState('hurt', 0.24);
+
+                    const push = e.isBoss ? 0.22 : 0.68;
+                    if (dist > 0.01) {
+                        e.pos.x += (dx / dist) * push;
+                        e.pos.z += (dz / dist) * push;
+                    }
+
+                    this.spawnFloatingText(
+                        e.pos.x,
+                        e.pos.y + 2.1,
+                        e.pos.z,
+                        isCrit ? `CRÍTICO! -${dmg}` : `-${dmg}`,
+                        isCrit ? '#ffd166' : '#ffffff',
+                        isCrit
+                    );
+
+                    if (e.hp <= 0) {
+                        this._handleEnemyDeath(e, questSystem, expSystem, inventorySystem, audioManager, uiManager);
+                    }
+                }
+            }
+
+            if (hitAny) {
+                if (audioManager) audioManager.playSFX('hit');
+                cameraController.triggerShake(0.22, 0.14);
+            }
+
+            return true;
+        }
+
+        _handleEnemyDeath(enemy, questSystem, expSystem, inventorySystem, audioManager, uiManager) {
+            enemy.hp = 0;
+            enemy.state = 'DEAD';
+            enemy.respawnTimer = 28;
+            enemy.animator.setState('dead');
+            if (audioManager) audioManager.playSFX('monster_die');
+
+            expSystem.gainExp(enemy.exp);
+            inventorySystem.gold += enemy.gold;
+
+            this.spawnFloatingText(enemy.pos.x, enemy.pos.y + 2.4, enemy.pos.z, `+${enemy.exp} EXP`, '#7ae582', false);
+
+            if (enemy.isBoss) {
+                inventorySystem.addItem('crown_goblin', 1);
+                uiManager.showToast('Você derrotou o Goblin Rei Grakthar! Retorne ao Ancião Aldric no vilarejo!');
+            } else if (Math.random() < 0.35) {
+                inventorySystem.addItem('potion_red', 1);
+                uiManager.showToast(`${enemy.name} derrubou uma Poção Vermelha!`);
+            }
+
+            questSystem.notifyKill(enemy.kind);
+        }
+
+        enemyMeleeHit(enemy, player, audioManager) {
+            if (player.isDead || player.invulnTimer > 0) return;
+            const derived = player.getDerivedStats();
+            const dmg = Math.max(1, Math.round(enemy.atk - derived.def * 0.55));
+            player.hp = Math.max(0, player.hp - dmg);
+            player.animator.setState('hurt', 0.22);
+            if (audioManager) audioManager.playSFX('player_hurt');
+
+            this.spawnFloatingText(player.pos.x, player.pos.y + 2.2, player.pos.z, `-${dmg}`, '#ff595e', false);
+
+            if (player.hp <= 0) player.isDead = true;
+        }
+
+        performBossSlam(boss, player, audioManager) {
+            const ringGeo = new THREE.RingGeometry(0.5, 4.4, 28);
+            ringGeo.rotateX(-Math.PI / 2);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: 0xff595e,
+                transparent: true,
+                opacity: 0.75,
+                side: THREE.DoubleSide
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.position.set(boss.pos.x, boss.pos.y + 0.12, boss.pos.z);
+            this.scene.add(ring);
+            this.effects.push({ mesh: ring, life: 0.45, maxLife: 0.45, scaleExpand: true });
+
+            if (audioManager) audioManager.playSFX('hit');
+
+            const dist = Math.hypot(player.pos.x - boss.pos.x, player.pos.z - boss.pos.z);
+            if (dist <= 4.5 && player.invulnTimer <= 0 && !player.isDead) {
+                const derived = player.getDerivedStats();
+                const dmg = Math.max(4, Math.round(boss.atk * 1.35 - derived.def * 0.5));
+                player.hp = Math.max(0, player.hp - dmg);
+                player.animator.setState('hurt', 0.3);
+                this.spawnFloatingText(player.pos.x, player.pos.y + 2.3, player.pos.z, `IMPACTO! -${dmg}`, '#ff2a2a', true);
+                if (player.hp <= 0) player.isDead = true;
+            }
+        }
+
+        spawnArrow(fromPos, targetPos, atk, audioManager) {
+            const geo = new THREE.CylinderGeometry(0.04, 0.04, 1.1, 6);
+            geo.rotateX(Math.PI / 2);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xf4a261 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(fromPos.x, fromPos.y + 1.1, fromPos.z);
+
+            const dx = targetPos.x - fromPos.x;
+            const dz = targetPos.z - fromPos.z;
+            const len = Math.hypot(dx, dz) || 1;
+            mesh.rotation.y = Math.atan2(dx, dz);
+
+            this.scene.add(mesh);
+            if (audioManager) audioManager.playSFX('arrow');
+
+            this.projectiles.push({
+                mesh,
+                vx: (dx / len) * 14.5,
+                vz: (dz / len) * 14.5,
+                atk,
+                life: 1.4
+            });
+        }
+
+        _spawnSlashArc(pos, angle, colorHex) {
+            const geo = new THREE.RingGeometry(0.7, 1.65, 16, 1, -Math.PI * 0.45, Math.PI * 0.9);
+            geo.rotateX(-Math.PI / 2);
+            const mat = new THREE.MeshBasicMaterial({
+                color: colorHex,
+                transparent: true,
+                opacity: 0.85,
+                side: THREE.DoubleSide
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(pos);
+            mesh.rotation.y = angle - Math.PI / 2;
+            this.scene.add(mesh);
+            this.effects.push({ mesh, life: 0.18, maxLife: 0.18 });
+        }
+
+        spawnFloatingText(x, y, z, text, color = '#ffffff', isLarge = false) {
+            if (!this.layerEl) return;
+            const el = document.createElement('div');
+            el.className = `floating-dmg ${isLarge ? 'crit' : ''}`;
+            el.textContent = text;
+            el.style.color = color;
+            this.layerEl.appendChild(el);
+
+            this.floatingTexts.push({
+                el,
+                worldPos: new THREE.Vector3(x, y, z),
+                life: 0.95,
+                maxLife: 0.95
+            });
+        }
+
+        update(dt, player, audioManager) {
+            for (let i = this.effects.length - 1; i >= 0; i--) {
+                const ef = this.effects[i];
+                ef.life -= dt;
+                if (ef.life <= 0) {
+                    this.scene.remove(ef.mesh);
+                    ef.mesh.geometry.dispose();
+                    ef.mesh.material.dispose();
+                    this.effects.splice(i, 1);
+                } else {
+                    const t = ef.life / ef.maxLife;
+                    ef.mesh.material.opacity = t * 0.85;
+                    if (ef.scaleExpand) {
+                        const s = 1 + (1 - t) * 0.35;
+                        ef.mesh.scale.set(s, 1, s);
+                    }
+                }
+            }
+
+            for (let i = this.projectiles.length - 1; i >= 0; i--) {
+                const p = this.projectiles[i];
+                p.life -= dt;
+                p.mesh.position.x += p.vx * dt;
+                p.mesh.position.z += p.vz * dt;
+
+                const distPlayer = Math.hypot(p.mesh.position.x - player.pos.x, p.mesh.position.z - player.pos.z);
+                if (distPlayer < 0.85 && !player.isDead && player.invulnTimer <= 0) {
+                    const derived = player.getDerivedStats();
+                    const dmg = Math.max(1, Math.round(p.atk - derived.def * 0.45));
+                    player.hp = Math.max(0, player.hp - dmg);
+                    player.animator.setState('hurt', 0.2);
+                    if (audioManager) audioManager.playSFX('player_hurt');
+                    this.spawnFloatingText(player.pos.x, player.pos.y + 2.1, player.pos.z, `-${dmg}`, '#ff595e', false);
+                    if (player.hp <= 0) player.isDead = true;
+                    p.life = 0;
+                }
+
+                if (p.life <= 0) {
+                    this.scene.remove(p.mesh);
+                    p.mesh.geometry.dispose();
+                    p.mesh.material.dispose();
+                    this.projectiles.splice(i, 1);
+                }
+            }
+
+            const halfW = window.innerWidth * 0.5;
+            const halfH = window.innerHeight * 0.5;
+            for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+                const ft = this.floatingTexts[i];
+                ft.life -= dt;
+                ft.worldPos.y += dt * 1.45;
+                if (ft.life <= 0) {
+                    ft.el.remove();
+                    this.floatingTexts.splice(i, 1);
+                } else {
+                    const proj = ft.worldPos.clone().project(this.camera);
+                    const sx = proj.x * halfW + halfW;
+                    const sy = -proj.y * halfH + halfH;
+                    ft.el.style.transform = `translate(${sx}px, ${sy}px)`;
+                    ft.el.style.opacity = Math.min(1, (ft.life / ft.maxLife) * 1.5);
+                }
+            }
+        }
+    }
+
+    /* ==========================================================================
+       14. AudioManager — Música medieval dinâmica por região & SFX via Web Audio
+       ========================================================================== */
+    class AudioManager {
+        constructor() {
+            this.ctx = null;
+            this.muted = false;
+            this.currentRegion = 'village';
+            this.bgmTimer = 0;
+            this.noteStep = 0;
+            this.ambientTimer = 0;
+        }
+
+        init() {
+            if (!this.ctx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx) this.ctx = new AudioCtx();
+            }
+            if (this.ctx && this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+        }
+
+        toggleMute() {
+            this.muted = !this.muted;
+            return this.muted;
+        }
+
+        setRegion(region) {
+            if (this.currentRegion !== region) {
+                this.currentRegion = region;
+                this.noteStep = 0;
+            }
+        }
+
+        _playTone(freq, duration, type = 'triangle', gainVal = 0.08, delay = 0) {
+            if (this.muted || !this.ctx) return;
+            const now = this.ctx.currentTime + delay;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, now);
+
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(gainVal, now + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + duration + 0.02);
+        }
+
+        playSFX(kind) {
+            if (this.muted) return;
+            this.init();
+            if (!this.ctx) return;
+
+            if (kind === 'step') {
+                this._playTone(110 + Math.random() * 25, 0.06, 'sine', 0.025);
+            } else if (kind === 'sword') {
+                this._playTone(520, 0.09, 'sawtooth', 0.06);
+                this._playTone(260, 0.14, 'triangle', 0.05, 0.03);
+            } else if (kind === 'hit') {
+                this._playTone(165, 0.12, 'square', 0.07);
+                this._playTone(95, 0.16, 'sawtooth', 0.06, 0.02);
+            } else if (kind === 'player_hurt') {
+                this._playTone(190, 0.15, 'sawtooth', 0.08);
+                this._playTone(130, 0.2, 'square', 0.07, 0.05);
+            } else if (kind === 'arrow') {
+                this._playTone(680, 0.08, 'triangle', 0.045);
+            } else if (kind === 'monster_die') {
+                this._playTone(220, 0.14, 'sawtooth', 0.06);
+                this._playTone(146, 0.24, 'sawtooth', 0.06, 0.08);
+            } else if (kind === 'potion') {
+                this._playTone(440, 0.1, 'sine', 0.07);
+                this._playTone(660, 0.16, 'sine', 0.07, 0.07);
+            } else if (kind === 'level_up') {
+                const notes = [523.25, 659.25, 783.99, 1046.5];
+                notes.forEach((n, i) => this._playTone(n, 0.28, 'triangle', 0.09, i * 0.09));
+            } else if (kind === 'ui_open') {
+                this._playTone(392, 0.08, 'triangle', 0.05);
+                this._playTone(523.25, 0.12, 'triangle', 0.05, 0.05);
+            } else if (kind === 'ui_click') {
+                this._playTone(480, 0.06, 'sine', 0.045);
+            }
+        }
+
+        update(dt) {
+            if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
+
+            const stepInterval = this.currentRegion === 'boss' ? 0.32 : 0.44;
+            this.bgmTimer -= dt;
+            if (this.bgmTimer <= 0) {
+                this.bgmTimer = stepInterval;
+                const melodies = {
+                    village: [349.23, 440.0, 523.25, 587.33, 523.25, 440.0, 392.0, 440.0, 349.23, 329.63, 293.66, 349.23],
+                    forest: [220.0, 261.63, 329.63, 293.66, 246.94, 220.0, 196.0, 220.0, 261.63, 246.94, 196.0, 164.81],
+                    boss: [146.83, 146.83, 174.61, 164.81, 146.83, 220.0, 207.65, 174.61]
+                };
+                const seq = melodies[this.currentRegion] || melodies.village;
+                const freq = seq[this.noteStep % seq.length];
+                this.noteStep++;
+
+                this._playTone(freq, stepInterval * 0.9, 'triangle', 0.026);
+                if (this.noteStep % 4 === 1) {
+                    this._playTone(freq * 0.5, stepInterval * 1.8, 'sine', 0.03);
+                }
+            }
+
+            this.ambientTimer -= dt;
+            if (this.ambientTimer <= 0) {
+                this.ambientTimer = 4.5 + Math.random() * 4.0;
+                if (this.currentRegion !== 'boss') {
+                    this._playTone(1320 + Math.random() * 300, 0.07, 'sine', 0.015);
+                    this._playTone(1580 + Math.random() * 250, 0.09, 'sine', 0.015, 0.09);
+                }
+            }
+        }
+    }
+
+    /* ==========================================================================
+       15. SaveSystem — Persistência em localStorage
+       ========================================================================== */
+    class SaveSystem {
+        constructor(storageKey = 'ragnarok25d_oakhaven_save_v1') {
+            this.storageKey = storageKey;
+        }
+
+        hasSave() {
+            try {
+                return Boolean(localStorage.getItem(this.storageKey));
+            } catch (e) {
+                return false;
+            }
+        }
+
+        saveGame(game) {
+            try {
+                const payload = {
+                    timestamp: Date.now(),
+                    player: {
+                        name: game.player.name,
+                        skinType: game.player.skinType,
+                        x: game.player.pos.x,
+                        z: game.player.pos.z,
+                        hp: game.player.hp,
+                        sp: game.player.sp
+                    },
+                    exp: game.expSystem.serialize(),
+                    inventory: game.inventorySystem.serialize(),
+                    equipment: game.equipmentSystem.serialize(),
+                    quests: game.questSystem.serialize()
+                };
+                localStorage.setItem(this.storageKey, JSON.stringify(payload));
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        loadGame(game) {
+            try {
+                const raw = localStorage.getItem(this.storageKey);
+                if (!raw) return false;
+                const data = JSON.parse(raw);
+
+                game.expSystem.deserialize(data.exp);
+                game.inventorySystem.deserialize(data.inventory);
+                game.equipmentSystem.deserialize(data.equipment);
+                game.questSystem.deserialize(data.quests);
+
+                if (data.player) {
+                    game.player.name = data.player.name || 'Sir Aldren';
+                    if (data.player.skinType) game.player.setSkin(data.player.skinType);
+                    game.player.pos.x = data.player.x ?? 0;
+                    game.player.pos.z = data.player.z ?? 44;
+                    game.player.pos.y = game.worldManager.getTerrainHeight(game.player.pos.x, game.player.pos.z);
+                    game.player.recalculateVitals(false);
+                    game.player.hp = Math.min(game.player.maxHp, data.player.hp ?? game.player.maxHp);
+                    game.player.sp = Math.min(game.player.maxSp, data.player.sp ?? game.player.maxSp);
+                    game.player.isDead = false;
+                    game.player.animator.setState('idle');
+                    game.player.animator.setPosition(game.player.pos.x, game.player.pos.y, game.player.pos.z);
+                }
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+    }
+
+    /* ==========================================================================
+       16. UIManager — HUD, Minimapa, Inventário, Atributos, Missões e Loja
+       ========================================================================== */
+    class UIManager {
+        constructor(game) {
+            this.game = game;
+            this.activeModal = null;
+            this.shopMode = 'merchant';
+            this.toastTimer = 0;
+
+            this.minimapCanvas = document.getElementById('minimap-canvas');
+            this.minimapCtx = this.minimapCanvas ? this.minimapCanvas.getContext('2d') : null;
+            this.toastEl = document.getElementById('toast-banner');
+
+            this._bindButtons();
+        }
+
+        _bindButtons() {
+            document.getElementById('btn-toggle-inv').onclick = () => this.toggleModal('inventory');
+            document.getElementById('btn-toggle-stats').onclick = () => this.toggleModal('stats');
+            document.getElementById('btn-toggle-quests').onclick = () => this.toggleModal('quests');
+            document.getElementById('btn-toggle-menu').onclick = () => this.toggleModal('pause');
+
+            document.querySelectorAll('[data-close-modal]').forEach(btn => {
+                btn.onclick = () => this.closeAllModals();
+            });
+
+            document.getElementById('quick-slot-1').onclick = () => this.game.useQuickPotion('potion_red');
+            document.getElementById('quick-slot-2').onclick = () => this.game.useQuickPotion('potion_blue');
+
+            document.getElementById('btn-save-game').onclick = () => {
+                const ok = this.game.saveSystem.saveGame(this.game);
+                this.showToast(ok ? 'Jogo salvo com sucesso!' : 'Erro ao salvar o jogo.');
+            };
+            document.getElementById('btn-load-game').onclick = () => {
+                const ok = this.game.saveSystem.loadGame(this.game);
+                if (ok) {
+                    this.closeAllModals();
+                    this.showToast('Progresso carregado!');
+                } else {
+                    this.showToast('Nenhum salvamento encontrado.');
+                }
+            };
+            document.getElementById('btn-toggle-audio').onclick = () => {
+                const muted = this.game.audioManager.toggleMute();
+                document.getElementById('btn-toggle-audio').textContent = muted ? 'Áudio: Desativado' : 'Áudio: Ativado';
+            };
+            document.getElementById('btn-respawn').onclick = () => {
+                this.game.player.respawnAtVillage();
+                document.getElementById('death-modal').classList.add('hidden');
+                this.showToast('Você retornou em segurança ao Vilarejo de Oakhaven.');
+            };
+            document.getElementById('btn-victory-continue').onclick = () => {
+                document.getElementById('victory-modal').classList.add('hidden');
+            };
+        }
+
+        isAnyModalOpen() {
+            return Boolean(this.activeModal) || this.game.dialogueSystem.isOpen;
+        }
+
+        toggleModal(name) {
+            if (this.game.dialogueSystem.isOpen) {
+                this.game.dialogueSystem.close();
+            }
+            if (this.activeModal === name) {
+                this.closeAllModals();
+                return;
+            }
+            this.closeAllModals(true);
+            this.activeModal = name;
+            const el = document.getElementById(`modal-${name}`);
+            if (el) {
+                el.classList.remove('hidden');
+                this.game.audioManager.playSFX('ui_open');
+                this.refreshActiveModal();
+            }
+        }
+
+        openShop(mode = 'merchant') {
+            this.shopMode = mode;
+            this.toggleModal('shop');
+        }
+
+        closeAllModals(silent = false) {
+            this.activeModal = null;
+            ['inventory', 'stats', 'quests', 'shop', 'pause'].forEach(m => {
+                const el = document.getElementById(`modal-${m}`);
+                if (el) el.classList.add('hidden');
+            });
+            if (!silent) this.game.audioManager.playSFX('ui_click');
+        }
+
+        showToast(msg) {
+            if (!this.toastEl) return;
+            this.toastEl.textContent = msg;
+            this.toastEl.classList.remove('hidden');
+            this.toastTimer = 3.6;
+        }
+
+        showVictoryModal() {
+            document.getElementById('victory-modal').classList.remove('hidden');
+            this.game.audioManager.playSFX('level_up');
+        }
+
+        refreshActiveModal() {
+            if (this.activeModal === 'inventory') this._renderInventory();
+            if (this.activeModal === 'stats') this._renderStats();
+            if (this.activeModal === 'quests') this._renderQuests();
+            if (this.activeModal === 'shop') this._renderShop();
+        }
+
+        _renderInventory() {
+            const { inventorySystem, equipmentSystem, spriteFactory, player } = this.game;
+            document.getElementById('inv-gold-value').textContent = `${inventorySystem.gold} Zeny`;
+
+            const equipContainer = document.getElementById('equip-slots-list');
+            equipContainer.innerHTML = '';
+            const slotLabels = {
+                weapon: 'Espada',
+                shield: 'Escudo',
+                armor: 'Armadura',
+                boots: 'Botas',
+                accessory: 'Acessório'
+            };
+
+            for (const [slotKey, label] of Object.entries(slotLabels)) {
+                const item = equipmentSystem.slots[slotKey];
+                const row = document.createElement('div');
+                row.className = 'equip-row';
+                if (item) {
+                    row.innerHTML = `
+                        <img src="${spriteFactory.getItemIconURL(item.icon)}" alt="${item.name}">
+                        <div class="equip-info">
+                            <span class="equip-slot-tag">${label}</span>
+                            <strong>${item.name}</strong>
+                        </div>
+                        <button class="ro-btn small">Remover</button>
+                    `;
+                    row.querySelector('button').onclick = () => {
+                        equipmentSystem.unequip(slotKey, inventorySystem);
+                        player.recalculateVitals(false);
+                        this.refreshActiveModal();
+                    };
+                } else {
+                    row.innerHTML = `
+                        <div class="equip-empty-icon"></div>
+                        <div class="equip-info">
+                            <span class="equip-slot-tag">${label}</span>
+                            <span style="color:#8d816c;">Vazio</span>
+                        </div>
+                    `;
+                }
+                equipContainer.appendChild(row);
+            }
+
+            const grid = document.getElementById('inventory-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < inventorySystem.maxSlots; i++) {
+                const item = inventorySystem.items[i];
+                const cell = document.createElement('div');
+                cell.className = `inv-slot ${item ? 'filled' : ''}`;
+                if (item) {
+                    cell.innerHTML = `
+                        <img src="${spriteFactory.getItemIconURL(item.icon)}" alt="${item.name}">
+                        ${item.qty > 1 ? `<span class="item-qty">${item.qty}</span>` : ''}
+                        <div class="item-tooltip">
+                            <strong>${item.name}</strong>
+                            <p>${item.desc}</p>
+                            <small>${item.type === 'equipment' ? 'Clique para Equipar' : item.type === 'consumable' ? 'Clique para Usar' : 'Relíquia'}</small>
+                        </div>
+                    `;
+                    cell.onclick = () => {
+                        const res = inventorySystem.useItem(item.id, player, equipmentSystem);
+                        if (res.ok) {
+                            player.recalculateVitals(false);
+                            this.game.audioManager.playSFX(res.kind === 'potion' ? 'potion' : 'ui_click');
+                            this.showToast(res.kind === 'equip' ? `Equipado: ${item.name}` : `Usou: ${item.name}`);
+                            this.refreshActiveModal();
+                        } else if (res.reason) {
+                            this.showToast(res.reason);
+                        }
+                    };
+                }
+                grid.appendChild(cell);
+            }
+        }
+
+        _renderStats() {
+            const { expSystem, player } = this.game;
+            const derived = player.getDerivedStats();
+
+            document.getElementById('stat-points-avail').textContent = expSystem.statPoints;
+            const statList = document.getElementById('base-stats-list');
+            statList.innerHTML = '';
+
+            const labels = [
+                { key: 'str', name: 'FOR (Força)', desc: 'Aumenta o Dano Físico' },
+                { key: 'agi', name: 'AGI (Agilidade)', desc: 'Velocidade de Ataque e Movimento' },
+                { key: 'vit', name: 'VIT (Vitalidade)', desc: 'HP Máximo e Defesa Física' },
+                { key: 'int', name: 'INT (Inteligência)', desc: 'SP Máximo e Regeneração' },
+                { key: 'dex', name: 'DES (Destreza)', desc: 'Precisão e Estabilidade do Golpe' },
+                { key: 'luk', name: 'SOR (Sorte)', desc: 'Chance de Acerto Crítico' }
+            ];
+
+            for (const s of labels) {
+                const row = document.createElement('div');
+                row.className = 'stat-row';
+                row.innerHTML = `
+                    <div>
+                        <strong>${s.name}</strong>
+                        <small>${s.desc}</small>
+                    </div>
+                    <div class="stat-controls">
+                        <span class="stat-val">${expSystem.stats[s.key]}</span>
+                        <button class="ro-btn small primary" ${expSystem.statPoints <= 0 ? 'disabled' : ''}>+</button>
+                    </div>
+                `;
+                row.querySelector('button').onclick = () => {
+                    if (expSystem.allocateStat(s.key)) {
+                        player.recalculateVitals(false);
+                        this.game.audioManager.playSFX('ui_click');
+                        this.refreshActiveModal();
+                    }
+                };
+                statList.appendChild(row);
+            }
+
+            document.getElementById('derived-stats-box').innerHTML = `
+                <div><span>Ataque Físico:</span> <strong>${derived.atk}</strong></div>
+                <div><span>Defesa Física:</span> <strong>${derived.def}</strong></div>
+                <div><span>Vida Máxima:</span> <strong>${derived.maxHp}</strong></div>
+                <div><span>Mana Máxima:</span> <strong>${derived.maxSp}</strong></div>
+                <div><span>Chance Crítica:</span> <strong>${Math.round(derived.critChance * 100)}%</strong></div>
+                <div><span>Velocidade:</span> <strong>${derived.moveSpeed.toFixed(1)}</strong></div>
+            `;
+        }
+
+        _renderQuests() {
+            const { questSystem, expSystem, inventorySystem } = this.game;
+            const list = document.getElementById('quest-list-container');
+            list.innerHTML = '';
+
+            const statusMap = {
+                available: { label: 'Disponível', cls: 'badge-avail' },
+                active: { label: 'Em Andamento', cls: 'badge-active' },
+                ready: { label: 'Pronta para Entregar!', cls: 'badge-ready' },
+                completed: { label: 'Concluída', cls: 'badge-done' }
+            };
+
+            for (const q of questSystem.quests) {
+                const st = statusMap[q.status] || statusMap.available;
+                const card = document.createElement('div');
+                card.className = `quest-card ${q.status}`;
+                card.innerHTML = `
+                    <div class="quest-header">
+                        <strong>${q.title}</strong>
+                        <span class="quest-badge ${st.cls}">${st.label}</span>
+                    </div>
+                    <p class="quest-desc">${q.description}</p>
+                    <div class="quest-progress">
+                        <span>Objetivo: ${q.objectiveText}</span>
+                        <strong>${q.current} / ${q.required}</strong>
+                    </div>
+                    <div class="quest-footer">
+                        <small>Recompensa: ${q.rewards.exp} EXP • ${q.rewards.gold} Zeny</small>
+                        ${q.status === 'ready' ? '<button class="ro-btn small primary">Resgatar Recompensa</button>' : ''}
+                    </div>
+                `;
+                const claimBtn = card.querySelector('button');
+                if (claimBtn) {
+                    claimBtn.onclick = () => {
+                        questSystem.claimReward(q.id, expSystem, inventorySystem);
+                        this.showToast(`Recompensa de "${q.title}" resgatada!`);
+                        this.refreshActiveModal();
+                    };
+                }
+                list.appendChild(card);
+            }
+        }
+
+        _renderShop() {
+            const { inventorySystem, spriteFactory } = this.game;
+            const catalogIds = this.shopMode === 'blacksmith'
+                ? ['sword_iron', 'sword_steel', 'shield_wood', 'shield_iron', 'armor_leather', 'armor_knight', 'boots_traveler']
+                : ['potion_red', 'potion_blue', 'ring_luck', 'boots_traveler'];
+
+            document.getElementById('shop-title').textContent =
+                this.shopMode === 'blacksmith' ? 'Forja do Ferreiro Borin' : 'Empório da Comerciante Lira';
+            document.getElementById('shop-gold-display').textContent = `Seu Ouro: ${inventorySystem.gold} Zeny`;
+
+            const container = document.getElementById('shop-items-list');
+            container.innerHTML = '';
+
+            for (const id of catalogIds) {
+                const item = ITEM_DATABASE[id];
+                if (!item) continue;
+                const row = document.createElement('div');
+                row.className = 'shop-row';
+                row.innerHTML = `
+                    <img src="${spriteFactory.getItemIconURL(item.icon)}" alt="${item.name}">
+                    <div class="shop-item-info">
+                        <strong>${item.name}</strong>
+                        <small>${item.desc}</small>
+                    </div>
+                    <button class="ro-btn small primary">${item.price} Zeny</button>
+                `;
+                row.querySelector('button').onclick = () => {
+                    if (inventorySystem.gold < item.price) {
+                        this.showToast('Zeny insuficiente!');
+                        return;
+                    }
+                    if (inventorySystem.addItem(item.id, 1)) {
+                        inventorySystem.gold -= item.price;
+                        this.game.audioManager.playSFX('potion');
+                        this.showToast(`Comprou: ${item.name}`);
+                        this._renderShop();
+                    } else {
+                        this.showToast('Inventário cheio!');
+                    }
+                };
+                container.appendChild(row);
+            }
+        }
+
+        update(dt) {
+            const { player, expSystem, inventorySystem, worldManager, npcSystem, enemyAI, questSystem, spriteFactory } = this.game;
+
+            if (this.toastTimer > 0) {
+                this.toastTimer -= dt;
+                if (this.toastTimer <= 0 && this.toastEl) {
+                    this.toastEl.classList.add('hidden');
+                }
+            }
+
+            const hudPortrait = document.getElementById('hud-portrait');
+            const expectedSrc = spriteFactory.getPortraitDataURL(player.skinType);
+            if (hudPortrait && hudPortrait.src !== expectedSrc) {
+                hudPortrait.src = expectedSrc;
+            }
+
+            document.getElementById('hud-char-name').textContent = player.name;
+            document.getElementById('hud-level').textContent = `Nv. ${expSystem.level}`;
+            document.getElementById('hud-hp-text').textContent = `${Math.ceil(player.hp)} / ${player.maxHp}`;
+            document.getElementById('hud-sp-text').textContent = `${Math.ceil(player.sp)} / ${player.maxSp}`;
+            document.getElementById('hud-hp-bar').style.width = `${Math.max(0, (player.hp / player.maxHp) * 100)}%`;
+            document.getElementById('hud-sp-bar').style.width = `${Math.max(0, (player.sp / player.maxSp) * 100)}%`;
+            document.getElementById('hud-exp-bar').style.width = `${Math.min(100, (expSystem.exp / expSystem.nextExp) * 100)}%`;
+
+            const statBadge = document.getElementById('stat-point-badge');
+            if (expSystem.statPoints > 0) {
+                statBadge.classList.remove('hidden');
+                statBadge.textContent = `+${expSystem.statPoints}`;
+            } else {
+                statBadge.classList.add('hidden');
+            }
+
+            document.getElementById('quick-hp-count').textContent = inventorySystem.getCount('potion_red');
+            document.getElementById('quick-sp-count').textContent = inventorySystem.getCount('potion_blue');
+            document.getElementById('hud-region-name').textContent = worldManager.regionNames[worldManager.currentRegion] || '';
+
+            const activeQuest = questSystem.quests.find(q => q.status === 'active' || q.status === 'ready');
+            const trackerEl = document.getElementById('hud-quest-tracker');
+            if (activeQuest) {
+                trackerEl.innerHTML = `
+                    <div class="tracker-title">${activeQuest.title}</div>
+                    <div class="tracker-obj">${activeQuest.objectiveText}: <strong>${activeQuest.current}/${activeQuest.required}</strong></div>
+                `;
+            } else {
+                trackerEl.innerHTML = `<div class="tracker-title">Campanha Concluída!</div><div class="tracker-obj">Explore livremente Oakhaven.</div>`;
+            }
+
+            const nearNPC = npcSystem.findNearestNPC(player.pos, 3.4);
+            const promptEl = document.getElementById('interact-prompt');
+            if (nearNPC && !this.isAnyModalOpen() && !player.isDead) {
+                promptEl.textContent = `[E] Conversar com ${nearNPC.name}`;
+                promptEl.classList.remove('hidden');
+            } else {
+                promptEl.classList.add('hidden');
+            }
+
+            const boss = enemyAI.enemies.find(e => e.isBoss && e.state !== 'DEAD');
+            const bossHud = document.getElementById('boss-hud-bar');
+            if (boss && Math.hypot(player.pos.x - boss.pos.x, player.pos.z - boss.pos.z) < 17) {
+                bossHud.classList.remove('hidden');
+                document.getElementById('boss-name-label').textContent = boss.name;
+                document.getElementById('boss-hp-fill').style.width = `${Math.max(0, (boss.hp / boss.maxHp) * 100)}%`;
+            } else {
+                bossHud.classList.add('hidden');
+            }
+
+            if (player.isDead) {
+                document.getElementById('death-modal').classList.remove('hidden');
+            }
+
+            this._renderMinimap();
+        }
+
+        _renderMinimap() {
+            if (!this.minimapCtx) return;
+            const ctx = this.minimapCtx;
+            const w = this.minimapCanvas.width;
+            const h = this.minimapCanvas.height;
+            const { player, npcSystem, enemyAI } = this.game;
+
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = '#263b24';
+            ctx.fillRect(0, 0, w, h);
+
+            const toMap = (wx, wz) => [
+                ((wx + 38) / 76) * w,
+                ((wz + 92) / 160) * h
+            ];
+
+            ctx.fillStyle = 'rgba(212, 184, 134, 0.25)';
+            ctx.fillRect(0, ((12 + 92) / 160) * h, w, h);
+
+            ctx.fillStyle = '#3898c9';
+            ctx.fillRect(0, ((9 + 92) / 160) * h, w, 5);
+
+            const [bx, by] = toMap(0, 10.5);
+            ctx.fillStyle = '#c98a4b';
+            ctx.fillRect(bx - 5, by - 4, 10, 8);
+
+            for (const npc of npcSystem.npcs) {
+                const [nx, ny] = toMap(npc.pos.x, npc.pos.z);
+                ctx.fillStyle = '#ffd166';
+                ctx.beginPath();
+                ctx.arc(nx, ny, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            for (const e of enemyAI.enemies) {
+                if (e.state === 'DEAD') continue;
+                const [ex, ey] = toMap(e.pos.x, e.pos.z);
+                ctx.fillStyle = e.isBoss ? '#ff2a2a' : '#ff6b6b';
+                ctx.beginPath();
+                ctx.arc(ex, ey, e.isBoss ? 4.5 : 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            const [px, py] = toMap(player.pos.x, player.pos.z);
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(px, py, 3.8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#1b263b';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+    }
+
+    /* ==========================================================================
+       17. GameEngine — Loop Principal e Controle de Entradas
+       ========================================================================== */
+    class GameEngine {
+        constructor() {
+            this.canvas = document.getElementById('game-canvas');
+            this.renderer = new THREE.WebGLRenderer({
+                canvas: this.canvas,
+                antialias: true,
+                powerPreference: 'high-performance'
+            });
+            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.shadowMap.enabled = true;
+            this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            this.renderer.toneMappingExposure = 1.05;
+
+            this.scene = new THREE.Scene();
+            this.camera = new THREE.PerspectiveCamera(44, window.innerWidth / window.innerHeight, 0.5, 260);
+
+            this.spriteFactory = new SpriteFactory();
+            this.audioManager = new AudioManager();
+            this.worldManager = new WorldManager(this.scene);
+            this.cameraController = new CameraController(this.camera, this.canvas);
+
+            this.expSystem = new ExperienceSystem();
+            this.equipmentSystem = new EquipmentSystem();
+            this.inventorySystem = new InventorySystem(20);
+            this.questSystem = new QuestSystem();
+            this.saveSystem = new SaveSystem();
+
+            this.worldManager.buildWorld();
+
+            this.player = new PlayerController(
+                this.scene,
+                this.spriteFactory,
+                this.worldManager,
+                this.expSystem,
+                this.equipmentSystem
+            );
+            this.combatSystem = new CombatSystem(this.scene, this.camera);
+            this.npcSystem = new NPCSystem(this.scene, this.spriteFactory, this.worldManager);
+            this.enemyAI = new EnemyAI(this.scene, this.spriteFactory, this.worldManager);
+            this.dialogueSystem = new DialogueSystem(this.spriteFactory, this.audioManager);
+            this.uiManager = new UIManager(this);
+
+            this.npcSystem.spawnVillageNPCs();
+            this.enemyAI.spawnInitialEnemies();
+
+            this._setupStarterKit();
+            this._bindCallbacks();
+            this._bindInputs();
+
+            this.keys = {};
+            this.isStarted = false;
+            this.lastTime = performance.now();
+            this.elapsedTime = 0;
+
+            this._setupTitleScreen();
+            this._loop(this.lastTime);
+        }
+
+        _setupStarterKit() {
+            this.equipmentSystem.slots.weapon = JSON.parse(JSON.stringify(ITEM_DATABASE.sword_iron));
+            this.equipmentSystem.slots.armor = JSON.parse(JSON.stringify(ITEM_DATABASE.armor_leather));
+            this.inventorySystem.addItem('potion_red', 4);
+            this.inventorySystem.addItem('potion_blue', 2);
+            this.player.recalculateVitals(true);
+        }
+
+        _bindCallbacks() {
+            this.expSystem.onLevelUp = (newLevel) => {
+                this.player.recalculateVitals(true);
+                this.audioManager.playSFX('level_up');
+                this.combatSystem.spawnFloatingText(
+                    this.player.pos.x,
+                    this.player.pos.y + 2.6,
+                    this.player.pos.z,
+                    `LEVEL UP! Nv.${newLevel}`,
+                    '#ffd166',
+                    true
+                );
+                this.uiManager.showToast(`Parabéns! Você alcançou o Nível ${newLevel} (+4 Pontos de Atributo)!`);
+            };
+
+            this.questSystem.onQuestUpdate = (quest, kind) => {
+                if (kind === 'accepted') {
+                    this.uiManager.showToast(`Nova Missão: ${quest.title}`);
+                } else if (kind === 'progress' && quest.status === 'ready') {
+                    this.uiManager.showToast(`Objetivo concluído: ${quest.title}! Retorne para entregar.`);
+                }
+            };
+        }
+
+        _setupTitleScreen() {
+            const titleOverlay = document.getElementById('title-screen');
+            const btnContinue = document.getElementById('btn-title-continue');
+            if (this.saveSystem.hasSave()) {
+                btnContinue.classList.remove('hidden');
+            }
+
+            document.getElementById('preview-knight').src = this.spriteFactory.getPortraitDataURL('knight');
+            document.getElementById('preview-guardian').src = this.spriteFactory.getPortraitDataURL('guardian');
+
+            let selectedSkin = 'knight';
+            document.querySelectorAll('.skin-card').forEach(card => {
+                card.onclick = () => {
+                    document.querySelectorAll('.skin-card').forEach(c => c.classList.remove('selected'));
+                    card.classList.add('selected');
+                    selectedSkin = card.dataset.skin;
+                    this.player.setSkin(selectedSkin);
+                };
+            });
+
+            document.getElementById('btn-title-new').onclick = () => {
+                const customName = document.getElementById('input-hero-name').value.trim();
+                if (customName) this.player.name = customName;
+                this.player.setSkin(selectedSkin);
+                this.audioManager.init();
+                this.audioManager.playSFX('ui_open');
+                titleOverlay.classList.add('hidden');
+                this.isStarted = true;
+                this.uiManager.showToast('Bem-vindo a Oakhaven! Fale com o Aventureiro Kael na praça.');
+            };
+
+            btnContinue.onclick = () => {
+                this.audioManager.init();
+                if (this.saveSystem.loadGame(this)) {
+                    titleOverlay.classList.add('hidden');
+                    this.isStarted = true;
+                    this.uiManager.showToast('Jogo carregado com sucesso!');
+                }
+            };
+        }
+
+        useQuickPotion(itemId) {
+            const res = this.inventorySystem.useItem(itemId, this.player, this.equipmentSystem);
+            if (res.ok) {
+                this.audioManager.playSFX('potion');
+                this.combatSystem.spawnFloatingText(
+                    this.player.pos.x,
+                    this.player.pos.y + 2.2,
+                    this.player.pos.z,
+                    itemId === 'potion_red' ? '+65 HP' : '+35 SP',
+                    itemId === 'potion_red' ? '#7ae582' : '#64dfdf',
+                    false
+                );
+            } else if (res.reason) {
+                this.uiManager.showToast(res.reason);
+            } else {
+                this.uiManager.showToast('Você não possui mais desta poção!');
+            }
+        }
+
+        _bindInputs() {
+            window.addEventListener('resize', () => {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            window.addEventListener('keydown', (e) => {
+                this.keys[e.code] = true;
+                if (!this.isStarted) return;
+
+                if (e.code === 'Escape') {
+                    if (this.dialogueSystem.isOpen) {
+                        this.dialogueSystem.close();
+                    } else if (this.uiManager.activeModal) {
+                        this.uiManager.closeAllModals();
+                    } else {
+                        this.uiManager.toggleModal('pause');
+                    }
+                    return;
+                }
+
+                if (e.code === 'KeyI') {
+                    this.uiManager.toggleModal('inventory');
+                    return;
+                }
+                if (e.code === 'KeyC') {
+                    this.uiManager.toggleModal('stats');
+                    return;
+                }
+                if (e.code === 'KeyQ') {
+                    this.uiManager.toggleModal('quests');
+                    return;
+                }
+                if (e.code === 'Digit1') {
+                    this.useQuickPotion('potion_red');
+                    return;
+                }
+                if (e.code === 'Digit2') {
+                    this.useQuickPotion('potion_blue');
+                    return;
+                }
+
+                if (e.code === 'KeyE') {
+                    if (this.dialogueSystem.isOpen) {
+                        this.dialogueSystem.advance();
+                    } else if (!this.uiManager.isAnyModalOpen()) {
+                        const npc = this.npcSystem.findNearestNPC(this.player.pos, 3.4);
+                        if (npc) this.npcSystem.interactWith(npc, this);
+                    }
+                    return;
+                }
+
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    if (this.dialogueSystem.isOpen) {
+                        this.dialogueSystem.advance();
+                    } else if (!this.uiManager.isAnyModalOpen()) {
+                        const nearNPC = this.npcSystem.findNearestNPC(this.player.pos, 2.4);
+                        if (nearNPC && !this._isMoving()) {
+                            this.npcSystem.interactWith(nearNPC, this);
+                        } else if (this.player.triggerDodge()) {
+                            this.audioManager.playSFX('step');
+                        }
+                    }
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                this.keys[e.code] = false;
+            });
+
+            const raycaster = new THREE.Raycaster();
+            const mouseNDC = new THREE.Vector2();
+            const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            const hitPoint = new THREE.Vector3();
+
+            this.canvas.addEventListener('mousedown', (e) => {
+                if (e.button !== 0 || !this.isStarted || this.uiManager.isAnyModalOpen()) return;
+                this.audioManager.init();
+
+                mouseNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
+                mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
+                groundPlane.constant = -this.player.pos.y;
+                raycaster.setFromCamera(mouseNDC, this.camera);
+
+                if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+                    const dx = hitPoint.x - this.player.pos.x;
+                    const dz = hitPoint.z - this.player.pos.z;
+                    if (Math.hypot(dx, dz) > 0.2) {
+                        this.player.animator.facingAngle = Math.atan2(dx, dz);
+                    }
+                }
+
+                this.combatSystem.playerBasicAttack(
+                    this.player,
+                    this.enemyAI,
+                    this.questSystem,
+                    this.expSystem,
+                    this.inventorySystem,
+                    this.cameraController,
+                    this.audioManager,
+                    this.uiManager
+                );
+            });
+        }
+
+        _isMoving() {
+            return Boolean(
+                this.keys['KeyW'] || this.keys['KeyS'] || this.keys['KeyA'] || this.keys['KeyD'] ||
+                this.keys['ArrowUp'] || this.keys['ArrowDown'] || this.keys['ArrowLeft'] || this.keys['ArrowRight']
+            );
+        }
+
+        _loop(now) {
+            requestAnimationFrame((t) => this._loop(t));
+            const dt = Math.min(0.05, (now - this.lastTime) / 1000);
+            this.lastTime = now;
+            this.elapsedTime += dt;
+
+            if (this.isStarted && !this.uiManager.isAnyModalOpen()) {
+                if (this.keys['KeyZ']) this.cameraController.rotateYaw(-1.6 * dt);
+                if (this.keys['KeyX']) this.cameraController.rotateYaw(1.6 * dt);
+            }
+
+            const uiLocked = !this.isStarted || this.uiManager.isAnyModalOpen();
+
+            this.player.update(dt, this.keys, this.cameraController.yaw, this.audioManager, uiLocked);
+            this.worldManager.update(dt, this.elapsedTime, this.player.pos);
+            this.npcSystem.update(dt, this.elapsedTime, this.cameraController.yaw, this.dialogueSystem.isOpen);
+
+            if (this.isStarted && !this.uiManager.isAnyModalOpen()) {
+                this.enemyAI.update(dt, this.cameraController.yaw, this.player, this.combatSystem, this.audioManager);
+                this.combatSystem.update(dt, this.player, this.audioManager);
+                this.audioManager.setRegion(this.worldManager.currentRegion);
+                this.audioManager.update(dt);
+            }
+
+            this.cameraController.update(dt, this.player.pos, this.worldManager.occludables);
+
+            if (this.isStarted) {
+                this.uiManager.update(dt);
+            }
+
+            this.renderer.render(this.scene, this.camera);
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        if (!window.THREE) {
+            document.body.innerHTML = '<div style="padding:32px;color:#ffd166;font-family:sans-serif;">Não foi possível carregar Three.js. Verifique sua conexão com a internet para carregar a biblioteca WebGL.</div>';
+            return;
+        }
+        window.gameInstance = new GameEngine();
+    });
+    </script>
+</body>
+</html>
